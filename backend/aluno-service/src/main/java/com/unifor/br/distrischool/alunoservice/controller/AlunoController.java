@@ -1,7 +1,7 @@
-package com.distrischool.alunoservice.controller;
+package com.unifor.br.distrischool.alunoservice.controller;
 
-import com.distrischool.alunoservice.model.Aluno;
-import com.distrischool.alunoservice.service.AlunoService;
+import com.unifor.br.distrischool.alunoservice.model.Aluno;
+import com.unifor.br.distrischool.alunoservice.service.AlunoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

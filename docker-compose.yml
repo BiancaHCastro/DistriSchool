@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - distrischool-net
 
   # Banco de Dados NoSQL (Opcional, listado na arquitetura para microsserviços específicos)
   mongodb:
@@ -20,6 +22,8 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - distrischool-net
 
   # Zookeeper (Necessário para gerenciar o Kafka)
   zookeeper:
@@ -29,6 +33,8 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
     ports:
       - "2181:2181"
+    networks:
+      - distrischool-net
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -45,6 +51,58 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_HOST
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  # Microsserviço de Login / Autenticação
+  login:
+    build: ./backend/login
+    container_name: distrischool-login
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres
+    networks:
+      - distrischool-net
+
+  # Microsserviço de Gestão de Alunos
+  aluno-service:
+    build: ./backend/aluno-service
+    container_name: distrischool-aluno-service
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres
+    networks:
+      - distrischool-net
+
+  # Microsserviço API Gateway
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: distrischool-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+    depends_on:
+      - login
+      - aluno-service
+    networks:
+      - distrischool-net
+
 volumes:
   postgres_data:
   mongodb_data:
+
+networks:
+  distrischool-net:
+    driver: bridge

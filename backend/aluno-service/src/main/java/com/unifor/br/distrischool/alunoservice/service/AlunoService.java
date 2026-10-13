@@ -1,7 +1,7 @@
-package com.distrischool.alunoservice.service;
+package com.unifor.br.distrischool.alunoservice.service;
 
-import com.distrischool.alunoservice.model.Aluno;
-import com.distrischool.alunoservice.repository.AlunoRepository;
+import com.unifor.br.distrischool.alunoservice.model.Aluno;
+import com.unifor.br.distrischool.alunoservice.repository.AlunoRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

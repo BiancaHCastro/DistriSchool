@@ -1,4 +1,4 @@
-package com.distrischool.alunoservice.model;
+package com.unifor.br.distrischool.alunoservice.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
