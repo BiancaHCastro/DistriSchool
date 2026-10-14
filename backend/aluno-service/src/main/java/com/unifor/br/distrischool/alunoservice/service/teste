@@ -1,0 +1,11 @@
+
+POST http://localhost:8081/alunos
+Content-Type: application/json
+
+{
+  "matricula": "9",
+  "nome": "John Nove",
+  "dataNascimento": "99/9/1999",
+  "endereco": "Rua 999999",
+  "contato": "859999999"
+}
