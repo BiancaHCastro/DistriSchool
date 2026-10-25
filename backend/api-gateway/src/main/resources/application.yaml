@@ -8,13 +8,13 @@ server:
       routes:
         # Rota para o Serviço de Usuários (Autenticação)
         - id: user-service
-          uri: http://localhost:8081
+          uri: http://login:8081
           predicates:
             - Path=/api/users/**, /api/auth/**
 
         # Rota para o Serviço de Alunos
         - id: student-service
-          uri: http://localhost:8082
+          uri: http://aluno-service:8082
           predicates:
             - Path=/api/students/**
 
