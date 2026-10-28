@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: distrischool_db
     ports:
-      - "5432:5432"
+        - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -22,6 +22,19 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - distrischool-net
+
+  # RabbitMQ - Processamento assíncrono de médias
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: distrischool-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - distrischool-net
 
@@ -82,6 +95,24 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       - postgres
+    networks:
+      - distrischool-net
+
+  # Microsserviço de Gestão de Notas e Avaliações
+  nota-service:
+    build: ./backend/nota-service
+    container_name: distrischool-nota-service
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - postgres
+      - rabbitmq
     networks:
       - distrischool-net
 
