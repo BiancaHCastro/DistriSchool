@@ -8,7 +8,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/alunos")
+@RequestMapping({"/alunos", "/api/students"})
+@CrossOrigin(origins = "*")
 public class AlunoController {
 
     private final AlunoService service;

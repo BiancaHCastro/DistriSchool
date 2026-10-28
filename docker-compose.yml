@@ -85,6 +85,25 @@ services:
     networks:
       - distrischool-net
 
+  # Microsserviço de Registro de Presenças (Attendance Service)
+  attendance-service:
+    build: ./backend/attendance-service
+    container_name: distrischool-attendance-service
+    ports:
+      - "8084:8084"
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - distrischool-net
+
   # Microsserviço API Gateway
   api-gateway:
     build: ./backend/api-gateway
@@ -96,6 +115,7 @@ services:
     depends_on:
       - login
       - aluno-service
+      - attendance-service
     networks:
       - distrischool-net
 
