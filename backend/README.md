@@ -9,7 +9,7 @@ Cada microsserviço deve ser um projeto Spring Boot independente dentro desta pa
    Exemplo de estrutura:
     - `/backend/school-core-service`
     - `/backend/notification-service`
-4. Lembre-se de configurar a conexão com o Kafka e o Postgres/Mongo no `application.properties` ou `application.yml` apontando para o Docker (`localhost:5432`, `localhost:9092`).
+4. Lembre-se de configurar a conexão com o Kafka e o Postgres/Mongo no `application.properties` ou `application.yml` apontando para o Docker (`localhost:5433`, `localhost:9092`).
 5. **Ajuste o API Gateway:** Sempre que um novo serviço for criado, adicione sua respectiva rota no arquivo `application.yml` (localizado em `api-gateway/src/main/resources/`) para que as requisições sejam redirecionadas corretamente.
 
 ---
@@ -29,7 +29,7 @@ Para executar este projeto localmente, você precisará ter instalado:
    ```bash
    docker-compose up --build -d
    ```
-3. **Conecte-se ao Banco de Dados:** Abra o seu SGBD (ex: DBeaver) e crie uma nova conexão PostgreSQL na porta `5432`. Utilize as credenciais padrão que estão definidas no arquivo `docker-compose.yml` (consulte as variáveis de ambiente `POSTGRES_USER` e `POSTGRES_PASSWORD` no serviço do banco).
+3. **Conecte-se ao Banco de Dados:** Abra o seu SGBD (ex: DBeaver) e crie uma nova conexão PostgreSQL na porta `5433`. Utilize as credenciais padrão que estão definidas no arquivo `docker-compose.yml` (consulte as variáveis de ambiente `POSTGRES_USER` e `POSTGRES_PASSWORD` no serviço do banco).
 
 ---
 
