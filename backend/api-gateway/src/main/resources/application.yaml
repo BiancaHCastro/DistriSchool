@@ -26,15 +26,18 @@ server:
 
         # Rota para o Serviço de Notas/Presenças
         - id: academic-service
-          uri: http://localhost:8084
+          uri: http://attendance-service:8084
           predicates:
             - Path=/api/academic/**
-            
-      # Configuração global de CORS para permitir que o Frontend (React) faça requisições
+
+      # Configuração global de CORS para permitir que o Frontend (React / Vite) faça requisições
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: "http://localhost:3000"
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:5173"
+              - "http://127.0.0.1:5173"
             allowedMethods:
               - GET
               - POST
@@ -42,3 +45,4 @@ server:
               - DELETE
               - OPTIONS
             allowedHeaders: "*"
+            allowCredentials: true
