@@ -18,7 +18,7 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // Fetch students from aluno-service via API Gateway
+  // Fetch students on load
   useEffect(() => {
     fetchStudents();
   }, []);
@@ -60,7 +60,7 @@ export default function App() {
     setAttendanceStatus(updated);
   };
 
-  // Submit attendance to attendance-service (which emits Kafka event)
+  // Submit attendance to attendance-service (which emits RabbitMQ event)
   const handleSubmitChamada = async (e) => {
     e.preventDefault();
     if (students.length === 0) {
@@ -89,7 +89,7 @@ export default function App() {
       const failed = responses.find(r => !r.ok);
       if (failed) throw new Error('Erro ao salvar algumas presenças no servidor');
 
-      setMessage({ type: 'success', text: 'Chamada registrada com sucesso e evento Kafka emitido!' });
+      setMessage({ type: 'success', text: 'Chamada registrada com sucesso e evento RabbitMQ emitido!' });
       fetchReport();
     } catch (err) {
       setMessage({ type: 'error', text: `Erro ao enviar chamada: ${err.message}` });
@@ -123,7 +123,6 @@ export default function App() {
   }, [activeTab, turmaId]);
 
   // Student CRUD operations communicating directly with aluno-service
-  // Note: aluno-service expects dataNascimento in dd/MM/yyyy format per @JsonFormat
   const handleSaveStudent = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -163,7 +162,6 @@ export default function App() {
   };
 
   const handleEditStudent = (student) => {
-    // Convert dd/MM/yyyy back to yyyy-MM-dd for HTML date input if needed
     let rawDate = student.dataNascimento || '';
     if (rawDate && rawDate.includes('/')) {
       const [day, month, year] = rawDate.split('/');
@@ -315,7 +313,7 @@ export default function App() {
 
               <div className="form-actions">
                 <button type="submit" className="btn-primary" disabled={loading || students.length === 0}>
-                  {loading ? 'Salvando Chamada...' : 'Salvar Chamada e Emitir Evento Kafka'}
+                  {loading ? 'Salvando Chamada...' : 'Salvar Chamada e Emitir Evento RabbitMQ'}
                 </button>
               </div>
             </form>
@@ -468,7 +466,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="table-responsive" styleльники style={{ marginTop: '24px' }}>
+                <div className="table-responsive" style={{ marginTop: '24px' }}>
                   <h3>Histórico de Registros (attendance-service)</h3>
                   <table className="attendance-table">
                     <thead>

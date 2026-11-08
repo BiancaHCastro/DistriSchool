@@ -1,11 +1,13 @@
 package com.unifor.br.distrischool.attendance_service.model;
 
 import jakarta.persistence.*;
+import java.io.Serializable;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "attendances")
-public class Attendance {
+public class Attendance implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
