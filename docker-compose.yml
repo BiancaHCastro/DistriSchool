@@ -25,31 +25,18 @@ services:
     networks:
       - distrischool-net
 
-  # Zookeeper (Necessário para gerenciar o Kafka)
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: distrischool-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
+  # RabbitMQ (Com interface gráfica de gerenciamento na porta 15672)
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: distrischool-rabbitmq
     ports:
-      - "2181:2181"
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - distrischool-net
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: distrischool-kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_HOST://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_HOST
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   # Microsserviço de Login / Autenticação
   login:
@@ -96,11 +83,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       - postgres
-      - kafka
+      - rabbitmq
     networks:
       - distrischool-net
 

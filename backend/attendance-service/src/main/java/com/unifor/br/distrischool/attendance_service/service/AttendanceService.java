@@ -4,7 +4,7 @@ import com.unifor.br.distrischool.attendance_service.dto.AttendanceRequestDTO;
 import com.unifor.br.distrischool.attendance_service.model.Attendance;
 import com.unifor.br.distrischool.attendance_service.model.AttendanceStatus;
 import com.unifor.br.distrischool.attendance_service.repository.AttendanceRepository;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -16,13 +16,13 @@ import java.util.Map;
 public class AttendanceService {
 
     private final AttendanceRepository repository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final RabbitTemplate rabbitTemplate;
 
-    private static final String TOPIC = "attendance.recorded";
+    private static final String QUEUE_NAME = "attendance.recorded";
 
-    public AttendanceService(AttendanceRepository repository, KafkaTemplate<String, Object> kafkaTemplate) {
+    public AttendanceService(AttendanceRepository repository, RabbitTemplate rabbitTemplate) {
         this.repository = repository;
-        this.kafkaTemplate = kafkaTemplate;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public Attendance registrarChamada(AttendanceRequestDTO dto) {
@@ -35,10 +35,9 @@ public class AttendanceService {
         Attendance saved = repository.save(attendance);
 
         try {
-            kafkaTemplate.send(TOPIC, saved);
+            rabbitTemplate.convertAndSend(QUEUE_NAME, saved);
         } catch (Exception e) {
-            // Log or handle Kafka publishing failure gracefully without breaking HTTP response
-            System.err.println("Erro ao publicar evento no Kafka: " + e.getMessage());
+            System.err.println("Erro ao publicar evento no RabbitMQ: " + e.getMessage());
         }
 
         return saved;

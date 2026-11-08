@@ -18,12 +18,6 @@ server:
           predicates:
             - Path=/api/students/**
 
-        # Rota para o Serviço de Professores
-        - id: teacher-service
-          uri: http://localhost:8083
-          predicates:
-            - Path=/api/teachers/**
-
         # Rota para o Serviço de Notas/Presenças
         - id: academic-service
           uri: http://attendance-service:8084

@@ -9,7 +9,7 @@ Cada microsserviço deve ser um projeto Spring Boot independente dentro desta pa
    Exemplo de estrutura:
     - `/backend/school-core-service`
     - `/backend/notification-service`
-4. Lembre-se de configurar a conexão com o Kafka e o Postgres/Mongo no `application.properties` ou `application.yml` apontando para o Docker (`localhost:5433`, `localhost:9092`).
+4. Lembre-se de configurar a conexão com o RabbitMQ e o Postgres/Mongo no `application.properties` ou `application.yml` apontando para o Docker (`localhost:5433` para Postgres, `localhost:9092` para RabbitMQ).
 5. **Ajuste o API Gateway:** Sempre que um novo serviço for criado, adicione sua respectiva rota no arquivo `application.yml` (localizado em `api-gateway/src/main/resources/`) para que as requisições sejam redirecionadas corretamente.
 
 ---
