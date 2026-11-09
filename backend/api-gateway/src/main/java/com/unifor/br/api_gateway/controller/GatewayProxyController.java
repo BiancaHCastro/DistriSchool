@@ -24,6 +24,16 @@ public class GatewayProxyController {
         return forwardRequest("http://aluno-service:8082" + uri, request, body);
     }
 
+    @RequestMapping("/api/teachers/**")
+    public ResponseEntity<Object> proxyTeachers(HttpServletRequest request, @RequestBody(required = false) String body) {
+        String uri = request.getRequestURI().replace("/api/teachers", "/professores");
+        String queryString = request.getQueryString();
+        if (queryString != null) {
+            uri += "?" + queryString;
+        }
+        return forwardRequest("http://professor-service:8083" + uri, request, body);
+    }
+
     @RequestMapping("/api/academic/**")
     public ResponseEntity<Object> proxyAcademic(HttpServletRequest request, @RequestBody(required = false) String body) {
         String uri = request.getRequestURI().replace("/api/academic", "");

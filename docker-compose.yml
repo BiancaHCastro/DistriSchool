@@ -72,6 +72,23 @@ services:
     networks:
       - distrischool-net
 
+  # Microsserviço de Gestão de Professores
+  professor-service:
+    build: ./backend/professor-service
+    container_name: distrischool-professor-service
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres
+    networks:
+      - distrischool-net
+
   # Microsserviço de Registro de Presenças (Attendance Service)
   attendance-service:
     build: ./backend/attendance-service
@@ -102,6 +119,7 @@ services:
     depends_on:
       - login
       - aluno-service
+      - professor-service
       - attendance-service
     networks:
       - distrischool-net
