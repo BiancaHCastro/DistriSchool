@@ -66,9 +66,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
+      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       - postgres
+      - rabbitmq
     networks:
       - distrischool-net
 
@@ -83,9 +85,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
+      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       - postgres
+      - rabbitmq
     networks:
       - distrischool-net
 
@@ -97,6 +101,25 @@ services:
       - "8084:8084"
     environment:
       SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - distrischool-net
+
+  # Microsserviço de Gestão de Turmas e Horários
+  turma-service:
+    build: ./backend/turma-service
+    container_name: distrischool-turma-service
+    ports:
+      - "8085:8085"
+    environment:
+      SERVER_PORT: 8085
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
@@ -121,6 +144,7 @@ services:
       - aluno-service
       - professor-service
       - attendance-service
+      - turma-service
     networks:
       - distrischool-net
 
