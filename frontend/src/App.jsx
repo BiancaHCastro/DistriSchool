@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import ProfessorComponent from './components/ProfessorComponent';
+import TurmaComponent from './components/TurmaComponent';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -216,6 +217,12 @@ export default function App() {
             onClick={() => setActiveTab('professores')}
           >
             Gestão de Professores (CRUD)
+          </button>
+          <button
+            className={activeTab === 'turmas' ? 'active' : ''}
+            onClick={() => setActiveTab('turmas')}
+          >
+            Turmas & Horários
           </button>
           <button
             className={activeTab === 'relatorio' ? 'active' : ''}
@@ -447,6 +454,10 @@ export default function App() {
 
         {activeTab === 'professores' && (
           <ProfessorComponent />
+        )}
+
+        {activeTab === 'turmas' && (
+          <TurmaComponent />
         )}
 
         {activeTab === 'relatorio' && (

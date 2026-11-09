@@ -26,12 +26,22 @@ public class GatewayProxyController {
 
     @RequestMapping("/api/teachers/**")
     public ResponseEntity<Object> proxyTeachers(HttpServletRequest request, @RequestBody(required = false) String body) {
-        String uri = request.getRequestURI().replace("/api/teachers", "/professores");
+        String uri = request.getRequestURI();
         String queryString = request.getQueryString();
         if (queryString != null) {
             uri += "?" + queryString;
         }
         return forwardRequest("http://professor-service:8083" + uri, request, body);
+    }
+
+    @RequestMapping("/api/turmas/**")
+    public ResponseEntity<Object> proxyTurmas(HttpServletRequest request, @RequestBody(required = false) String body) {
+        String uri = request.getRequestURI();
+        String queryString = request.getQueryString();
+        if (queryString != null) {
+            uri += "?" + queryString;
+        }
+        return forwardRequest("http://turma-service:8085" + uri, request, body);
     }
 
     @RequestMapping("/api/academic/**")
@@ -54,7 +64,7 @@ public class GatewayProxyController {
         return forwardRequest("http://login:8081" + uri, request, body);
     }
 
-    private ResponseEntity<Object> forwardRequest(String targetUrl, HttpServletRequest request, String body) {
+    private ResponseEntity<Object> forwardRequest(String targetUrl, HttpServletRequest request, String body) {  
         try {
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> headerNames = request.getHeaderNames();
