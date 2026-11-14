@@ -131,6 +131,25 @@ services:
     networks:
       - distrischool-net
 
+  # Microsserviço de Gestão de Notas (Nota Service)
+  nota-service:
+    build: ./backend/nota-service
+    container_name: distrischool-nota-service
+    ports:
+      - "8086:8086"
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - distrischool-net
+
   # Microsserviço API Gateway
   api-gateway:
     build: ./backend/api-gateway
@@ -145,6 +164,7 @@ services:
       - professor-service
       - attendance-service
       - turma-service
+      - nota-service
     networks:
       - distrischool-net
 

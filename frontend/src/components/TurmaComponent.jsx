@@ -24,18 +24,25 @@ const HORARIOS_OPCOES = [
 export default function TurmaComponent() {
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Enrollment modal state
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+  const [selectedTurma, setSelectedTurma] = useState(null);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [studentToAdd, setStudentToAdd] = useState('');
+
   // Filtros de busca na listagem
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroSemestre, setFiltroSemestre] = useState('');
   const [filtroProfessor, setFiltroProfessor] = useState('');
 
-  // Formulário sem localização física
+  // Formulário de Turma
   const [classForm, setClassForm] = useState({
     id: null,
     codigo: '',
@@ -50,6 +57,7 @@ export default function TurmaComponent() {
   useEffect(() => {
     fetchClasses();
     fetchTeachers();
+    fetchAllStudents();
   }, []);
 
   const fetchClasses = async () => {
@@ -76,6 +84,18 @@ export default function TurmaComponent() {
       }
     } catch (err) {
       console.error('Erro ao buscar professores:', err);
+    }
+  };
+
+  const fetchAllStudents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/students`);
+      if (res.ok) {
+        const data = await res.json();
+        setAllStudents(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar alunos:', err);
     }
   };
 
@@ -117,6 +137,65 @@ export default function TurmaComponent() {
     });
     setIsEditing(true);
     setShowModal(true);
+  };
+
+  const openEnrollmentModal = async (turma) => {
+    setSelectedTurma(turma);
+    setShowEnrollmentModal(true);
+    await fetchEnrolledStudents(turma.id);
+  };
+
+  const fetchEnrolledStudents = async (turmaId) => {
+    try {
+      const res = await fetch(`${API_BASE}/turmas/${turmaId}/alunos`);
+      if (res.ok) {
+        const data = await res.json();
+        setEnrolledStudents(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar alunos matriculados:', err);
+      setEnrolledStudents([]);
+    }
+  };
+
+  const handleEnrollStudent = async (e) => {
+    e.preventDefault();
+    if (!studentToAdd || !selectedTurma) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/turmas/${selectedTurma.id}/alunos/${studentToAdd}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao matricular aluno na turma');
+      }
+      setMessage({ type: 'success', text: 'Aluno matriculado na turma com sucesso!' });
+      setStudentToAdd('');
+      await fetchEnrolledStudents(selectedTurma.id);
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnenrollStudent = async (alunoId) => {
+    if (!window.confirm('Deseja remover a matrícula deste aluno nesta turma?')) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/turmas/${selectedTurma.id}/alunos/${alunoId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok && res.status !== 204) throw new Error('Erro ao desmatricular aluno');
+      setMessage({ type: 'success', text: 'Matrícula removida com sucesso!' });
+      await fetchEnrolledStudents(selectedTurma.id);
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveClass = async (payload, editing) => {
@@ -201,13 +280,19 @@ export default function TurmaComponent() {
     return Array.from(s);
   }, [classes]);
 
+  // Alunos disponíveis que ainda não estão matriculados na turma selecionada
+  const alunosDisponiveis = useMemo(() => {
+    const idsMatriculados = new Set(enrolledStudents.map(m => m.alunoId));
+    return allStudents.filter(s => !idsMatriculados.has(s.id));
+  }, [allStudents, enrolledStudents]);
+
   return (
     <div className="card classes-card">
       <div className="card-header">
         <div>
           <h2>Gestão de Turmas & Horários (turma-service)</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
-            Planejamento acadêmico com horários e corpo docente (sem localização física)
+            Planejamento acadêmico com horários, corpo docente e matrículas de alunos
           </span>
         </div>
         <button className="btn-primary" onClick={openNewModal}>
@@ -295,8 +380,8 @@ export default function TurmaComponent() {
               <th>Disciplina</th>
               <th>Semestre</th>
               <th>Docente Alocado</th>
-              <th>Horário (Dias / Turno)</th>
-              <th>Capacidade</th>
+              <th>Horário</th>
+              <th>Vagas</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -330,26 +415,30 @@ export default function TurmaComponent() {
                       {professorObj ? (
                         <div>
                           <strong>{professorObj.nome}</strong>
-                          <span style={{ display: 'block', fontSize: '12px', color: '#64748b' }}>
-                            {professorObj.especialidade}
-                          </span>
                         </div>
                       ) : (
                         <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Não alocado</span>
                       )}
                     </td>
                     <td>
-                      <div style={{ fontWeight: '500', color: '#0f172a' }}>
+                      <div style={{ fontWeight: '500', color: '#0f172a', fontSize: '13px' }}>
                         {turma.horario || '-'}
                       </div>
                     </td>
                     <td>
                       <span style={{ fontWeight: '600', color: '#166534' }}>
-                        {turma.capacidadeMaxima || 40} vagas
+                        {turma.capacidadeMaxima || 40} máx
                       </span>
                     </td>
                     <td>
                       <div className="action-buttons">
+                        <button
+                          className="btn-success"
+                          style={{ backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                          onClick={() => openEnrollmentModal(turma)}
+                        >
+                          Matrículas
+                        </button>
                         <button className="btn-secondary" onClick={() => openEditModal(turma)}>
                           Editar
                         </button>
@@ -366,6 +455,85 @@ export default function TurmaComponent() {
         </table>
       </div>
 
+      {/* Modal de Matrícula de Alunos na Turma */}
+      {showEnrollmentModal && selectedTurma && (
+        <div className="modal-overlay" onClick={() => setShowEnrollmentModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '650px' }} onClick={(e) => e.stopPropagation()}>
+            <h3>Matrículas de Alunos - {selectedTurma.codigo} ({selectedTurma.nomeDisciplina})</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+              Vincule alunos existentes (aluno-service) a esta turma. Um aluno pode estar matriculado em múltiplas turmas.
+            </p>
+
+            <form onSubmit={handleEnrollStudent} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              <select
+                style={{ flex: 1 }}
+                value={studentToAdd}
+                onChange={(e) => setStudentToAdd(e.target.value)}
+                required
+              >
+                <option value="">-- Selecione um aluno para matricular --</option>
+                {alunosDisponiveis.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.matricula} - {s.nome}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="btn-primary" disabled={loading || alunosDisponiveis.length === 0}>
+                Matricular Aluno
+              </button>
+            </form>
+
+            <div className="table-responsive" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+              <table className="attendance-table">
+                <thead>
+                  <tr>
+                    <th>ID Aluno</th>
+                    <th>Nome do Aluno</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enrolledStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" className="text-center">Nenhum aluno matriculado nesta turma ainda.</td>
+                    </tr>
+                  ) : (
+                    enrolledStudents.map(m => {
+                      const studentObj = allStudents.find(s => s.id === m.alunoId);
+                      return (
+                        <tr key={m.id || m.alunoId}>
+                          <td><code>{m.alunoId}</code></td>
+                          <td className="student-name">
+                            {studentObj ? studentObj.nome : `Aluno ID #${m.alunoId}`}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn-danger"
+                              style={{ padding: '4px 8px', fontSize: '12px' }}
+                              onClick={() => handleUnenrollStudent(m.alunoId)}
+                            >
+                              Remover Matrícula
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowEnrollmentModal(false)}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Criação / Edição de Turma */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" style={{ maxWidth: '540px' }} onClick={(e) => e.stopPropagation()}>
