@@ -4,6 +4,7 @@ const API_BASE = 'http://localhost:8080/api';
 
 export default function ProfessorComponent() {
   const [professors, setProfessors] = useState([]);
+  const [turmas, setTurmas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -14,6 +15,7 @@ export default function ProfessorComponent() {
 
   useEffect(() => {
     fetchProfessors();
+    fetchTurmas();
   }, []);
 
   const fetchProfessors = async () => {
@@ -30,6 +32,30 @@ export default function ProfessorComponent() {
       setProfessors([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTurmas = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/turmas`);
+      if (res.ok) {
+        const data = await res.json();
+        setTurmas(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar turmas:', err);
+    }
+  };
+
+  // Formatação de Contato: (85) 98888-8888
+  const formatPhone = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) {
+      return digits.length ? `(${digits}` : '';
+    } else if (digits.length <= 7) {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    } else {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
     }
   };
 
@@ -87,7 +113,12 @@ export default function ProfessorComponent() {
   return (
     <div className="card students-card">
       <div className="card-header">
-        <h2>Gerenciamento de Professores (professor-service)</h2>
+        <div>
+          <h2>Gerenciamento de Professores (professor-service)</h2>
+          <span style={{ fontSize: '13px', color: '#64748b' }}>
+            Corpo docente responsável pelas turmas e disciplinas acadêmicas
+          </span>
+        </div>
         <button
           className="btn-primary"
           onClick={() => {
@@ -115,38 +146,63 @@ export default function ProfessorComponent() {
               <th>E-mail</th>
               <th>Telefone</th>
               <th>Especialidade</th>
+              <th>Turmas Responsáveis</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {professors.length === 0 ? (
               <tr>
-                <td colSpan="6" className="text-center">Nenhum professor encontrado no banco de dados.</td>
+                <td colSpan="7" className="text-center">Nenhum professor encontrado no banco de dados.</td>
               </tr>
             ) : (
-              professors.map(prof => (
-                <tr key={prof.id}>
-                  <td>{prof.id}</td>
-                  <td className="student-name">{prof.nome}</td>
-                  <td><code>{prof.email}</code></td>
-                  <td>{prof.telefone || '-'}</td>
-                  <td>{prof.especialidade || '-'}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-secondary" onClick={() => handleEditProfessor(prof)}>Editar</button>
-                      <button className="btn-danger" onClick={() => handleDeleteProfessor(prof.id)}>Excluir</button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              professors.map(prof => {
+                const turmasDoProfessor = turmas.filter(t => String(t.teacherId) === String(prof.id));
+                return (
+                  <tr key={prof.id}>
+                    <td>{prof.id}</td>
+                    <td className="student-name">{prof.nome}</td>
+                    <td><code>{prof.email}</code></td>
+                    <td>{prof.telefone || '-'}</td>
+                    <td>{prof.especialidade || '-'}</td>
+                    <td>
+                      {turmasDoProfessor.length === 0 ? (
+                        <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '12px' }}>Nenhuma turma atribuída</span>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {turmasDoProfessor.map(t => (
+                            <span key={t.id} style={{
+                              backgroundColor: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              color: '#0f172a'
+                            }}>
+                              {t.codigo} - {t.nomeDisciplina} ({t.semestre})
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-secondary" onClick={() => handleEditProfessor(prof)}>Editar</button>
+                        <button className="btn-danger" onClick={() => handleDeleteProfessor(prof.id)}>Excluir</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
       {showProfessorModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={() => setShowProfessorModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{isEditingProfessor ? 'Editar Professor' : 'Cadastrar Novo Professor'}</h3>
             <form onSubmit={handleSaveProfessor}>
               <div className="form-group">
@@ -170,12 +226,13 @@ export default function ProfessorComponent() {
                 />
               </div>
               <div className="form-group">
-                <label>Telefone:</label>
+                <label>Telefone (Formato: (85) 98888-8888):</label>
                 <input
                   type="text"
+                  maxLength={15}
                   value={professorForm.telefone || ''}
-                  onChange={(e) => setProfessorForm({ ...professorForm, telefone: e.target.value })}
-                  placeholder="Ex: (85) 98888-7777"
+                  onChange={(e) => setProfessorForm({ ...professorForm, telefone: formatPhone(e.target.value) })}
+                  placeholder="(85) 98888-8888"
                 />
               </div>
               <div className="form-group">

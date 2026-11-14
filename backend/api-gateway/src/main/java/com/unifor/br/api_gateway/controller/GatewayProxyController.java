@@ -44,6 +44,16 @@ public class GatewayProxyController {
         return forwardRequest("http://turma-service:8085" + uri, request, body);
     }
 
+    @RequestMapping({"/api/notas/**", "/notas/**"})
+    public ResponseEntity<Object> proxyNotas(HttpServletRequest request, @RequestBody(required = false) String body) {
+        String uri = request.getRequestURI().replace("/api/notas", "/notas");
+        String queryString = request.getQueryString();
+        if (queryString != null) {
+            uri += "?" + queryString;
+        }
+        return forwardRequest("http://nota-service:8086" + uri, request, body);
+    }
+
     @RequestMapping("/api/academic/**")
     public ResponseEntity<Object> proxyAcademic(HttpServletRequest request, @RequestBody(required = false) String body) {
         String uri = request.getRequestURI().replace("/api/academic", "");
