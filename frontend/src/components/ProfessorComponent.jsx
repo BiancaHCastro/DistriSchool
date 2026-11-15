@@ -1,6 +1,7 @@
+import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = 'http://localhost:8080/api';
+
 
 export default function ProfessorComponent() {
   const [professors, setProfessors] = useState([]);
@@ -21,7 +22,7 @@ export default function ProfessorComponent() {
   const fetchProfessors = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/teachers`);
+      const res = await apiFetch(`${API_BASE}/teachers`);
       if (!res.ok) throw new Error(`Erro HTTP ao buscar professores: ${res.status}`);
       const data = await res.json();
       setProfessors(data);
@@ -37,7 +38,7 @@ export default function ProfessorComponent() {
 
   const fetchTurmas = async () => {
     try {
-      const res = await fetch(`${API_BASE}/turmas`);
+      const res = await apiFetch(`${API_BASE}/turmas`);
       if (res.ok) {
         const data = await res.json();
         setTurmas(data);
@@ -66,7 +67,7 @@ export default function ProfessorComponent() {
       const url = isEditingProfessor ? `${API_BASE}/teachers/${professorForm.id}` : `${API_BASE}/teachers`;
       const method = isEditingProfessor ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(professorForm)
@@ -99,7 +100,7 @@ export default function ProfessorComponent() {
     if (!window.confirm('Deseja realmente excluir este professor?')) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/teachers/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API_BASE}/teachers/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir professor');
       setMessage({ type: 'success', text: 'Professor excluído com sucesso!' });
       fetchProfessors();

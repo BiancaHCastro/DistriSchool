@@ -32,6 +32,7 @@ public class AttendanceService {
                 dto.getData() != null ? dto.getData() : LocalDate.now(),
                 dto.getStatus()
         );
+        repository.findAll().stream().filter(a->java.util.Objects.equals(a.getAlunoId(),attendance.getAlunoId())&&java.util.Objects.equals(a.getTurmaId(),attendance.getTurmaId())&&java.util.Objects.equals(a.getData(),attendance.getData())).findFirst().ifPresent(a->attendance.setId(a.getId()));
         Attendance saved = repository.save(attendance);
 
         try {

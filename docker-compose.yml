@@ -39,19 +39,23 @@ services:
       - distrischool-net
 
   # Microsserviço de Login / Autenticação
-  login:
-    build: ./backend/login
-    container_name: distrischool-login
+  auth-service:
+    build: ./backend/auth-service
+    container_name: distrischool-auth-service
     ports:
       - "8081:8081"
     environment:
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SEED_PASSWORD: ${SEED_PASSWORD:-Universidade123!}
     depends_on:
-      - postgres
+      auth-db:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -63,6 +67,7 @@ services:
       - "8082:8082"
     environment:
       SERVER_PORT: 8082
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
@@ -82,6 +87,7 @@ services:
       - "8083:8083"
     environment:
       SERVER_PORT: 8083
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
@@ -101,6 +107,7 @@ services:
       - "8084:8084"
     environment:
       SERVER_PORT: 8084
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
@@ -120,6 +127,7 @@ services:
       - "8085:8085"
     environment:
       SERVER_PORT: 8085
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
@@ -139,6 +147,7 @@ services:
       - "8086:8086"
     environment:
       SERVER_PORT: 8086
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: password
@@ -158,8 +167,9 @@ services:
       - "8080:8080"
     environment:
       SERVER_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
     depends_on:
-      - login
+      - auth-service
       - aluno-service
       - professor-service
       - attendance-service
@@ -168,7 +178,24 @@ services:
     networks:
       - distrischool-net
 
+  auth-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d auth_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - distrischool-net
+
 volumes:
+  auth_data:
   postgres_data:
   mongodb_data:
 

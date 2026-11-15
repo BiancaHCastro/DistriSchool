@@ -1,14 +1,12 @@
+import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect, useMemo } from 'react';
 
-const API_BASE = 'http://localhost:8080/api';
+
 
 const DIAS_OPCOES = [
   'Seg / Qua',
   'Ter / Qui',
-  'Qua / Sex',
-  'Seg / Qua / Sex',
-  'Ter / Qui / Sáb',
-  'Sábado Manhã'
+  'Sex'
 ];
 
 const HORARIOS_OPCOES = [
@@ -63,7 +61,7 @@ export default function TurmaComponent() {
   const fetchClasses = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/turmas`);
+      const res = await apiFetch(`${API_BASE}/turmas`);
       if (!res.ok) throw new Error('Erro ao buscar turmas');
       const data = await res.json();
       setClasses(data);
@@ -77,7 +75,7 @@ export default function TurmaComponent() {
 
   const fetchTeachers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/teachers`);
+      const res = await apiFetch(`${API_BASE}/teachers`);
       if (res.ok) {
         const data = await res.json();
         setTeachers(data);
@@ -89,7 +87,7 @@ export default function TurmaComponent() {
 
   const fetchAllStudents = async () => {
     try {
-      const res = await fetch(`${API_BASE}/students`);
+      const res = await apiFetch(`${API_BASE}/students`);
       if (res.ok) {
         const data = await res.json();
         setAllStudents(data);
@@ -147,7 +145,7 @@ export default function TurmaComponent() {
 
   const fetchEnrolledStudents = async (turmaId) => {
     try {
-      const res = await fetch(`${API_BASE}/turmas/${turmaId}/alunos`);
+      const res = await apiFetch(`${API_BASE}/turmas/${turmaId}/alunos`);
       if (res.ok) {
         const data = await res.json();
         setEnrolledStudents(data);
@@ -164,7 +162,7 @@ export default function TurmaComponent() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/turmas/${selectedTurma.id}/alunos/${studentToAdd}`, {
+      const res = await apiFetch(`${API_BASE}/turmas/${selectedTurma.id}/alunos/${studentToAdd}`, {
         method: 'POST'
       });
       const data = await res.json();
@@ -185,7 +183,7 @@ export default function TurmaComponent() {
     if (!window.confirm('Deseja remover a matrícula deste aluno nesta turma?')) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/turmas/${selectedTurma.id}/alunos/${alunoId}`, {
+      const res = await apiFetch(`${API_BASE}/turmas/${selectedTurma.id}/alunos/${alunoId}`, {
         method: 'DELETE'
       });
       if (!res.ok && res.status !== 204) throw new Error('Erro ao desmatricular aluno');
@@ -198,25 +196,60 @@ export default function TurmaComponent() {
     }
   };
 
+  const gerarCodigoPreview = (nome) => {
+    if (!nome || !nome.trim()) return '';
+    const limpo = nome
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z]/g, '')
+      .toUpperCase()
+      .trim();
+
+    if (!limpo) return 'TUR-01';
+
+    let prefix = limpo.length >= 3 ? limpo.substring(0, 3) : limpo;
+    const count = classes.filter(c => c.codigo && c.codigo.toUpperCase().startsWith(prefix)).length + 1;
+    return `${prefix}-${String(count).padStart(2, '0')}`;
+  };
+
+  const handleNomeDisciplinaChange = (e) => {
+    const val = e.target.value;
+    setClassForm(prev => ({
+      ...prev,
+      nomeDisciplina: val,
+      codigo: !prev.id && (!prev.codigo || prev.codigo.startsWith(gerarCodigoPreview(prev.nomeDisciplina).substring(0, 3))) ? gerarCodigoPreview(val) : prev.codigo
+    }));
+  };
   const handleSaveClass = async (payload, editing) => {
     setLoading(true);
     try {
       const url = editing ? `${API_BASE}/turmas/${payload.id}` : `${API_BASE}/turmas`;
       const method = editing ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error('Erro ao salvar turma no servidor');
+      if (!res.ok) {
+        let errorMsg = 'Erro ao salvar turma no servidor';
+        try {
+          const errData = await res.json();
+          if (errData && errData.error) {
+            errorMsg = errData.error;
+          }
+        } catch (e) {
+          // ignore
+        }
+        throw new Error(errorMsg);
+      }
 
       setMessage({ type: 'success', text: editing ? 'Turma atualizada com sucesso!' : 'Turma criada com sucesso e evento RabbitMQ emitido!' });
       fetchClasses();
       return true;
     } catch (err) {
-      setMessage({ type: 'error', text: `Erro ao salvar turma: ${err.message}` });
+      setMessage({ type: 'error', text: `${err.message}` });
       return false;
     } finally {
       setLoading(false);
@@ -227,7 +260,7 @@ export default function TurmaComponent() {
     if (!window.confirm('Deseja realmente excluir esta turma?')) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/turmas/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API_BASE}/turmas/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir turma');
       setMessage({ type: 'success', text: 'Turma excluída com sucesso!' });
       fetchClasses();
@@ -544,10 +577,9 @@ export default function TurmaComponent() {
                   <label>Código da Turma:</label>
                   <input
                     type="text"
-                    required
                     value={classForm.codigo}
                     onChange={(e) => setClassForm({ ...classForm, codigo: e.target.value })}
-                    placeholder="Ex: TURMA-301"
+                    placeholder="Vazio = Gerado Auto (ex: COD-01)"
                   />
                 </div>
                 <div className="form-group">
@@ -556,7 +588,7 @@ export default function TurmaComponent() {
                     type="text"
                     required
                     value={classForm.nomeDisciplina}
-                    onChange={(e) => setClassForm({ ...classForm, nomeDisciplina: e.target.value })}
+                    onChange={handleNomeDisciplinaChange}
                     placeholder="Ex: Sistemas Distribuídos"
                   />
                 </div>
