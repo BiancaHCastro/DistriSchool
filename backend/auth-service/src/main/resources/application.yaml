@@ -1,0 +1,20 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: auth-service
+  profiles:
+    include: resilience
+  datasource:
+    url: jdbc:postgresql://auth-db:5432/auth_db
+    username: admin
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  rabbitmq:
+    host: rabbitmq
+    connection-timeout: 500ms
+    template:
+      retry:
+        enabled: false

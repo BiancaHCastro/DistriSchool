@@ -23,6 +23,7 @@ public class Attendance implements Serializable {
     private LocalDate data;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     private AttendanceStatus status;
 

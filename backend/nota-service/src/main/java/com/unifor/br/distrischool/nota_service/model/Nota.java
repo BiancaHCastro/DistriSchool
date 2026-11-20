@@ -5,6 +5,23 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "notas")
 public class Nota {
+    private String turmaId;
+    private Double nota1;
+    private Double nota2;
+    private Double notaFinal;
+    public CriterioAvaliacao.Situacao getSituacao() { return CriterioAvaliacao.avaliar(this).situacao(); }
+    public Double getMedia() { return CriterioAvaliacao.avaliar(this).media(); }
+    public Double getMediaFinal() { return CriterioAvaliacao.avaliar(this).mediaFinal(); }
+
+    public String getTurmaId(){return turmaId;}
+    public void setTurmaId(String value){turmaId=value;}
+    public Double getNota1(){return nota1;}
+    public void setNota1(Double value){nota1=value;}
+    public Double getNota2(){return nota2;}
+    public void setNota2(Double value){nota2=value;}
+    public Double getNotaFinal(){return notaFinal;}
+    public void setNotaFinal(Double value){notaFinal=value;}
+
 
     public Double getValor() {
         return valor;

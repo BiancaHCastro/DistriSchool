@@ -6,6 +6,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    java.util.Optional<Attendance> findFirstByAlunoIdAndTurmaIdAndDataOrderByIdAsc(
+            Long alunoId, String turmaId, LocalDate data);
+    List<Attendance> findByData(LocalDate data);
     List<Attendance> findByTurmaIdAndData(String turmaId, LocalDate data);
     List<Attendance> findByAlunoId(Long alunoId);
     List<Attendance> findByAlunoIdAndTurmaId(Long alunoId, String turmaId);

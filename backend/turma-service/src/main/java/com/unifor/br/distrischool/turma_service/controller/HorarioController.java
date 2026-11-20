@@ -1,4 +1,6 @@
 package com.unifor.br.distrischool.turma_service.controller;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.unifor.br.distrischool.turma_service.security.Identity;
 
 import com.unifor.br.distrischool.turma_service.model.Horario;
 import com.unifor.br.distrischool.turma_service.service.HorarioService;
@@ -15,6 +17,7 @@ public class HorarioController {
         this.horarioService = horarioService;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Horario> criarHorario(@RequestBody Horario horario) {
         Horario novoHorario = horarioService.alocarHorario(horario);

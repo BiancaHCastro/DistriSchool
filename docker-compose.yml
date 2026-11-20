@@ -4,22 +4,28 @@ services:
     image: postgres:15
     container_name: distrischool-postgres
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: distrischool_db
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-distrischool_db}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
     networks:
       - distrischool-net
 
   # Banco de Dados NoSQL (Opcional, listado na arquitetura para microsserviços específicos)
   mongodb:
+    profiles: ["mongodb"]
     image: mongo:6
     container_name: distrischool-mongodb
     ports:
-      - "27017:27017"
+      - "127.0.0.1:${MONGODB_PORT:-27017}:27017"
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -29,29 +35,45 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: distrischool-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-distrischool}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-distrischool-local}
     networks:
       - distrischool-net
 
   # Microsserviço de Login / Autenticação
-  login:
-    build: ./backend/login
-    container_name: distrischool-login
+  auth-service:
+    build: ./backend/auth-service
+    container_name: distrischool-auth-service
     ports:
-      - "8081:8081"
+      - "127.0.0.1:${AUTH_PORT:-8081}:8081"
     environment:
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/${AUTH_POSTGRES_DB:-auth_db}
+      SPRING_DATASOURCE_USERNAME: ${AUTH_POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_POSTGRES_PASSWORD:-password}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
+      NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:5173}
+      SPRING_PROFILES_ACTIVE: ${AUTH_PROFILES:-local-notifications}
+      SEED_PASSWORD: ${SEED_PASSWORD:-Universidade123!}
     depends_on:
-      - postgres
+      auth-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -60,17 +82,23 @@ services:
     build: ./backend/aluno-service
     container_name: distrischool-aluno-service
     ports:
-      - "8082:8082"
+      - "127.0.0.1:${ALUNO_PORT:-8082}:8082"
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-distrischool_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
+      NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -79,17 +107,23 @@ services:
     build: ./backend/professor-service
     container_name: distrischool-professor-service
     ports:
-      - "8083:8083"
+      - "127.0.0.1:${PROFESSOR_PORT:-8083}:8083"
     environment:
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-distrischool_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
+      NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -98,17 +132,23 @@ services:
     build: ./backend/attendance-service
     container_name: distrischool-attendance-service
     ports:
-      - "8084:8084"
+      - "127.0.0.1:${ATTENDANCE_PORT:-8084}:8084"
     environment:
       SERVER_PORT: 8084
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-distrischool_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
+      NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -117,17 +157,23 @@ services:
     build: ./backend/turma-service
     container_name: distrischool-turma-service
     ports:
-      - "8085:8085"
+      - "127.0.0.1:${TURMA_PORT:-8085}:8085"
     environment:
       SERVER_PORT: 8085
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-distrischool_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
+      NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -136,17 +182,23 @@ services:
     build: ./backend/nota-service
     container_name: distrischool-nota-service
     ports:
-      - "8086:8086"
+      - "127.0.0.1:${NOTA_PORT:-8086}:8086"
     environment:
       SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distrischool_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-distrischool_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
+      NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - distrischool-net
 
@@ -155,11 +207,12 @@ services:
     build: ./backend/api-gateway
     container_name: distrischool-api-gateway
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     environment:
       SERVER_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-distrischool-development-secret-change-before-production-2026}
     depends_on:
-      - login
+      - auth-service
       - aluno-service
       - professor-service
       - attendance-service
@@ -168,7 +221,24 @@ services:
     networks:
       - distrischool-net
 
+  auth-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${AUTH_POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${AUTH_POSTGRES_DB:-auth_db}
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - distrischool-net
+
 volumes:
+  auth_data:
   postgres_data:
   mongodb_data:
 

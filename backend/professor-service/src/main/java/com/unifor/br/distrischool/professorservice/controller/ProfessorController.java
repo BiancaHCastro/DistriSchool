@@ -1,4 +1,6 @@
 package com.unifor.br.distrischool.professorservice.controller;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.unifor.br.distrischool.professorservice.security.Identity;
 
 import com.unifor.br.distrischool.professorservice.model.Professor;
 import com.unifor.br.distrischool.professorservice.service.ProfessorService;
@@ -20,6 +22,7 @@ public class ProfessorController {
         this.service = service;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<?> cadastrar(@Valid @RequestBody Professor professor) {
         try {
@@ -29,11 +32,21 @@ public class ProfessorController {
         }
     }
 
-    @GetMapping
-    public List<Professor> listar() {
-        return service.listar();
+    public record ProfessorName(Long id, String nome) {}
+
+    @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR','ALUNO')")
+    @GetMapping("/directory")
+    public List<ProfessorName> directory() {
+        return service.listar().stream().map(professor -> new ProfessorName(professor.getId(), professor.getNome())).toList();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR')")
+    @GetMapping
+    public List<Professor> listar() {
+        return service.listar().stream().filter(p->Identity.role("ADMIN")||Identity.own(p.getId())).toList();
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('PROFESSOR') and T(com.unifor.br.distrischool.professorservice.security.Identity).own(#id))")
     @GetMapping("/{id}")
     public ResponseEntity<Professor> buscarPorId(@PathVariable Long id) {
         return service.buscarPorId(id)
@@ -41,15 +54,20 @@ public class ProfessorController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('PROFESSOR') and T(com.unifor.br.distrischool.professorservice.security.Identity).own(#id))")
     @PutMapping("/{id}")
-    public ResponseEntity<Professor> atualizar(
+    public ResponseEntity<?> atualizar(
             @PathVariable Long id,
             @Valid @RequestBody Professor professor) {
-        return service.atualizar(id, professor)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            return service.atualizar(id, professor).map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (IllegalArgumentException | org.springframework.dao.DataIntegrityViolationException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("E-mail já cadastrado para outro professor.");
+        }
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(@PathVariable Long id) {
         return service.excluir(id)

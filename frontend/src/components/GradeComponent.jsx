@@ -1,10 +1,14 @@
+import Notification from './Notification';
+import ExportButtons from './ExportButtons';
+import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect, useMemo } from 'react';
 
-const API_BASE = 'http://localhost:8080/api';
+
 
 export default function GradeComponent() {
   const [classes, setClasses] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -25,42 +29,65 @@ export default function GradeComponent() {
   });
 
   useEffect(() => {
-    fetchClasses();
-    fetchStudents();
+    fetchInitialData();
     fetchGrades();
   }, []);
 
-  const fetchClasses = async () => {
+  const fetchInitialData = async () => {
     try {
-      const res = await fetch(`${API_BASE}/turmas`);
-      if (res.ok) {
-        const data = await res.json();
-        setClasses(data);
-        if (data.length > 0 && !selectedTurmaId) {
-          setSelectedTurmaId(data[0].codigo || data[0].id);
-        }
+      const studRes = await apiFetch(`${API_BASE}/students`);
+      const studData = studRes.ok ? await studRes.json() : [];
+      setAllStudents(studData);
+
+      const turmaRes = await apiFetch(`${API_BASE}/turmas`);
+      const turmaData = turmaRes.ok ? await turmaRes.json() : [];
+      setClasses(turmaData);
+
+      if (turmaData.length > 0) {
+        const firstTurma = turmaData[0];
+        const firstTurmaId = firstTurma.codigo || firstTurma.id;
+        setSelectedTurmaId(firstTurmaId);
+        await fetchEnrolledForTurma(firstTurma.id, studData);
       }
     } catch (err) {
-      console.error('Erro ao buscar turmas:', err);
+      console.error('Erro ao buscar turmas/alunos:', err);
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchEnrolledForTurma = async (turmaDbId, studentList = allStudents) => {
     try {
-      const res = await fetch(`${API_BASE}/students`);
+      const res = await apiFetch(`${API_BASE}/turmas/${turmaDbId}/alunos`);
       if (res.ok) {
-        const data = await res.json();
-        setStudents(data);
+        const matriculas = await res.json();
+        const enrolledIds = new Set(matriculas.map(m => m.alunoId));
+        const filtered = studentList.filter(s => enrolledIds.has(s.id));
+        setEnrolledStudents(filtered);
+      } else {
+        setEnrolledStudents([]);
       }
     } catch (err) {
-      console.error('Erro ao buscar alunos:', err);
+      console.error('Erro ao buscar alunos matriculados na turma:', err);
+      setEnrolledStudents([]);
     }
+  };
+
+  useEffect(() => {
+    if (selectedTurmaId && classes.length > 0) {
+      const selectedClassObj = classes.find(c => String(c.codigo) === String(selectedTurmaId) || String(c.id) === String(selectedTurmaId));
+      if (selectedClassObj) {
+        fetchEnrolledForTurma(selectedClassObj.id, allStudents);
+      }
+    }
+  }, [selectedTurmaId, classes]);
+
+  const fetchStudents = async () => {
+    // mantido para compatibilidade ou uso interno se necessário
   };
 
   const fetchGrades = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/notas`);
+      const res = await apiFetch(`${API_BASE}/notas`);
       if (res.ok) {
         const data = await res.json();
         setGrades(data);
@@ -104,7 +131,7 @@ export default function GradeComponent() {
         notaFinal: formData.notaFinal !== '' ? Number(formData.notaFinal) : null
       };
 
-      const res = await fetch(`${API_BASE}/notas`, {
+      const res = await apiFetch(`${API_BASE}/notas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -112,7 +139,7 @@ export default function GradeComponent() {
 
       if (!res.ok) throw new Error('Erro ao salvar nota no servidor');
 
-      setMessage({ type: 'success', text: 'Nota lançada com sucesso e evento RabbitMQ emitido!' });
+      setMessage({ type: 'success', text: 'Nota salva com sucesso!' });
       fetchGrades();
       return true;
     } catch (err) {
@@ -143,26 +170,20 @@ export default function GradeComponent() {
   }, [grades, selectedTurmaId, selectedClass]);
 
   const alunosFiltrados = useMemo(() => {
-    return students.filter((s) => {
+    return enrolledStudents.filter((s) => {
       const matchText =
         !filtroTexto ||
         s.nome.toLowerCase().includes(filtroTexto.toLowerCase()) ||
         s.matricula.toLowerCase().includes(filtroTexto.toLowerCase());
 
       const g = gradeMap[s.id];
-      const n1 = g?.nota1 ?? 0;
-      const n2 = g?.nota2 ?? 0;
-      const media = (n1 + n2) / 2;
-      let situacao = 'EM_ANDAMENTO';
-      if (g?.nota1 !== undefined && g?.nota2 !== undefined && g?.nota1 !== null && g?.nota2 !== null) {
-        situacao = media >= 7 ? 'APROVADO' : media >= 4 ? 'RECUPERACAO' : 'REPROVADO';
-      }
+      const situacao = g?.situacao ?? 'PENDENTE';
 
       const matchSituacao = filtroSituacao === 'ALL' || situacao === filtroSituacao;
 
       return matchText && matchSituacao;
     });
-  }, [students, filtroTexto, filtroSituacao, gradeMap]);
+  }, [enrolledStudents, filtroTexto, filtroSituacao, gradeMap]);
 
   return (
     <div className="card grades-card">
@@ -196,11 +217,9 @@ export default function GradeComponent() {
         </div>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ margin: '16px 0' }}>
-          {message.text}
-        </div>
-      )}
+      <ExportButtons endpoint="/notas/relatorio/export" filename="notas" turmaId={selectedClass?.codigo || selectedTurmaId}/>
+
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       {/* Barra de Filtros e Busca de Notas */}
       <div
@@ -235,9 +254,9 @@ export default function GradeComponent() {
           >
             <option value="ALL">Todas as Situações</option>
             <option value="APROVADO">Aprovado (Média ≥ 7.0)</option>
-            <option value="RECUPERACAO">Recuperação (4.0 a 6.9)</option>
+            <option value="EM_AVF">Em AVF</option>
             <option value="REPROVADO">Reprovado (&lt; 4.0)</option>
-            <option value="EM_ANDAMENTO">Em Andamento</option>
+            <option value="PENDENTE">Pendente</option>
           </select>
         </div>
       </div>
@@ -270,27 +289,19 @@ export default function GradeComponent() {
                 const n2 = g?.nota2 ?? null;
                 const nf = g?.notaFinal ?? null;
                 
-                let media = null;
-                let sit = 'EM_ANDAMENTO';
-                if (n1 !== null && n2 !== null) {
-                  media = (n1 + n2) / 2;
-                  if (nf !== null) {
-                    media = (media + nf) / 2;
-                    sit = media >= 5 ? 'APROVADO' : 'REPROVADO';
-                  } else {
-                    sit = media >= 7 ? 'APROVADO' : media >= 4 ? 'RECUPERACAO' : 'REPROVADO';
-                  }
-                }
+                const media = g?.mediaFinal ?? g?.media ?? null;
+                const sit = g?.situacao ?? 'PENDENTE';
+
 
                 let sitClass = 'badge-atraso';
-                let sitLabel = 'Em Andamento';
+                let sitLabel = 'Pendente';
 
                 if (sit === 'APROVADO') {
                   sitClass = 'badge-presenca';
                   sitLabel = 'Aprovado';
-                } else if (sit === 'RECUPERACAO') {
+                } else if (sit === 'EM_AVF') {
                   sitClass = 'badge-atraso';
-                  sitLabel = 'Em Recuperação';
+                  sitLabel = 'Em AVF';
                 } else if (sit === 'REPROVADO') {
                   sitClass = 'badge-falta';
                   sitLabel = 'Reprovado';
@@ -353,7 +364,7 @@ export default function GradeComponent() {
               <div className="form-group">
                 <label>Aluno Selecionado:</label>
                 <div style={{ fontWeight: '600', padding: '8px 0', color: '#1e293b' }}>
-                  {students.find((s) => s.id === gradeForm.alunoId)?.nome}
+                  {allStudents.find((s) => s.id === gradeForm.alunoId)?.nome}
                 </div>
               </div>
 
@@ -399,7 +410,7 @@ export default function GradeComponent() {
 
               <div className="modal-actions">
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? 'Publicando...' : 'Salvar e Emitir Evento (RabbitMQ)'}
+                  {loading ? 'Publicando...' : 'Salvar notas'}
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
                   Cancelar

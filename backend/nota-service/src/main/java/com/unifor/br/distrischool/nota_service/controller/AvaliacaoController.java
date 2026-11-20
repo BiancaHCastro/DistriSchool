@@ -1,4 +1,6 @@
 package com.unifor.br.distrischool.nota_service.controller;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.unifor.br.distrischool.nota_service.security.Identity;
 
 import com.unifor.br.distrischool.nota_service.service.AvaliacaoService;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,16 +27,19 @@ public class AvaliacaoController {
         this.avaliacaoService = avaliacaoService;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public Avaliacao cadastrar(@RequestBody Avaliacao avaliacao) {
         return avaliacaoService.cadastrar(avaliacao);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR','ALUNO')")
     @GetMapping
     public List<Avaliacao> listarTodas() {
         return avaliacaoService.listarTodas();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR','ALUNO')")
     @GetMapping("/{id}")
     public ResponseEntity<Avaliacao> buscarPorId(@PathVariable Long id) {
         return avaliacaoService.buscarPorId(id)
@@ -42,6 +47,7 @@ public class AvaliacaoController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Avaliacao> atualizar(
             @PathVariable Long id,
@@ -52,6 +58,7 @@ public class AvaliacaoController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(@PathVariable Long id) {
 

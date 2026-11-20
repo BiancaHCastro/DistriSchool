@@ -44,6 +44,9 @@ public class ProfessorService {
 
     public Optional<Professor> atualizar(Long id, Professor novosDados) {
         return repository.findById(id).map(professor -> {
+            if (repository.existsByEmailAndIdNot(novosDados.getEmail(), id)) {
+                throw new IllegalArgumentException("E-mail já cadastrado para outro professor.");
+            }
             professor.setNome(novosDados.getNome());
             professor.setEmail(novosDados.getEmail());
             professor.setTelefone(novosDados.getTelefone());

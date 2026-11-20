@@ -1,6 +1,9 @@
+import Notification from './Notification';
+import ExportButtons from './ExportButtons';
+import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = 'http://localhost:8080/api';
+
 
 export default function AttendanceComponent() {
   const [activeSubTab, setActiveSubTab] = useState('chamada');
@@ -23,12 +26,12 @@ export default function AttendanceComponent() {
     setLoading(true);
     try {
       // 1. Fetch all students
-      const studRes = await fetch(`${API_BASE}/students`);
+      const studRes = await apiFetch(`${API_BASE}/students`);
       const studData = studRes.ok ? await studRes.json() : [];
       setAllStudents(studData);
 
       // 2. Fetch classes (turmas)
-      const turmaRes = await fetch(`${API_BASE}/turmas`);
+      const turmaRes = await apiFetch(`${API_BASE}/turmas`);
       const turmaData = turmaRes.ok ? await turmaRes.json() : [];
       setClasses(turmaData);
 
@@ -47,7 +50,7 @@ export default function AttendanceComponent() {
 
   const fetchEnrolledForTurma = async (turmaDbId, studentList = allStudents) => {
     try {
-      const res = await fetch(`${API_BASE}/turmas/${turmaDbId}/alunos`);
+      const res = await apiFetch(`${API_BASE}/turmas/${turmaDbId}/alunos`);
       if (res.ok) {
         const matriculas = await res.json();
         const enrolledIds = new Set(matriculas.map(m => m.alunoId));
@@ -117,7 +120,7 @@ export default function AttendanceComponent() {
           data: dataChamada,
           status: attendanceStatus[student.id] || 'PRESENCA'
         };
-        return fetch(`${API_BASE}/academic/presencas`, {
+        return apiFetch(`${API_BASE}/academic/presencas`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -140,19 +143,14 @@ export default function AttendanceComponent() {
   const fetchReport = async () => {
     if (!turmaId) return;
     try {
-      const res = await fetch(`${API_BASE}/academic/presencas/relatorio?turmaId=${turmaId}`);
+      const res = await apiFetch(`${API_BASE}/academic/presencas/relatorio?turmaId=${turmaId}`);
       if (!res.ok) throw new Error('Falha ao carregar relatório');
       const data = await res.json();
       setReport(data);
     } catch (err) {
       console.error('Erro ao carregar relatório:', err);
-      setReport({
-        totalAulas: 0,
-        presencas: 0,
-        faltas: 0,
-        percentualPresenca: 100.0,
-        historico: []
-      });
+      setReport(null);
+      setMessage({type:'error',text:err.message});
     }
   };
 
@@ -179,11 +177,7 @@ export default function AttendanceComponent() {
         </button>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ marginBottom: '16px' }}>
-          {message.text}
-        </div>
-      )}
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       {activeSubTab === 'chamada' && (
         <div className="card attendance-card">
@@ -282,7 +276,7 @@ export default function AttendanceComponent() {
 
             <div className="form-actions">
               <button type="submit" className="btn-primary" disabled={loading || students.length === 0 || !turmaId}>
-                {loading ? 'Salvando Chamada...' : 'Salvar Chamada e Emitir Evento (RabbitMQ)'}
+                {loading ? 'Salvando Chamada...' : 'Salvar chamada'}
               </button>
             </div>
           </form>
@@ -293,6 +287,7 @@ export default function AttendanceComponent() {
         <div className="card report-card">
           <div className="card-header">
             <h2>Relatório de Frequência - {turmaId || 'Selecione uma Turma'}</h2>
+            <ExportButtons endpoint="/attendance/relatorio/export" filename="frequencia" turmaId={turmaId}/>
             <button className="btn-secondary" onClick={fetchReport}>Atualizar Relatório</button>
           </div>
 

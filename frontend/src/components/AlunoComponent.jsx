@@ -1,6 +1,8 @@
+import Notification from './Notification';
+import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = 'http://localhost:8080/api';
+
 
 export default function AlunoComponent() {
   const [students, setStudents] = useState([]);
@@ -24,7 +26,7 @@ export default function AlunoComponent() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/students`);
+      const res = await apiFetch(`${API_BASE}/students`);
       if (!res.ok) throw new Error(`Erro HTTP ao buscar alunos: ${res.status}`);
       const data = await res.json();
       setStudents(data);
@@ -44,14 +46,14 @@ export default function AlunoComponent() {
     setLoading(true);
     try {
       // 1. Fetch all turmas
-      const turmaRes = await fetch(`${API_BASE}/turmas`);
+      const turmaRes = await apiFetch(`${API_BASE}/turmas`);
       if (!turmaRes.ok) throw new Error('Erro ao buscar turmas');
       const allTurmas = await turmaRes.json();
 
       // 2. Check enrollments for each turma
       const enrolledTurmas = [];
       for (const turma of allTurmas) {
-        const matRes = await fetch(`${API_BASE}/turmas/${turma.id}/alunos`);
+        const matRes = await apiFetch(`${API_BASE}/turmas/${turma.id}/alunos`);
         if (matRes.ok) {
           const matriculas = await matRes.json();
           if (matriculas.some(m => m.alunoId === student.id)) {
@@ -141,7 +143,7 @@ export default function AlunoComponent() {
         dataNascimento: formattedDate || null
       };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -179,7 +181,7 @@ export default function AlunoComponent() {
     if (!window.confirm('Deseja realmente excluir este aluno?')) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/students/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API_BASE}/students/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir aluno');
       setMessage({ type: 'success', text: 'Aluno excluído com sucesso!' });
       fetchStudents();
@@ -204,11 +206,7 @@ export default function AlunoComponent() {
         </button>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ margin: '16px 0' }}>
-          {message.text}
-        </div>
-      )}
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       <div className="table-responsive">
         <table className="attendance-table">
