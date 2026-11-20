@@ -19,9 +19,11 @@ public class AuthController {
  public record Session(String token,UserView user){}
  @PostMapping("/api/auth/login")
  public Session login(@Valid @RequestBody Credentials input){
-  var user=users.findByEmail(input.email().trim().toLowerCase()).orElse(null);
-  boolean valid=passwords.matches(input.password(),user==null?dummyHash:user.passwordHash);
+  var user=users.findByEmail(input.email().trim().toLowerCase(Locale.ROOT)).orElse(null);
+  boolean valid=input.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72
+          && passwords.matches(input.password(),user==null?dummyHash:user.passwordHash);
   if(user==null||!valid)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"E-mail ou senha inválidos");
+  if (!user.emailVerified) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Confirme seu e-mail para entrar.");
   var token=jwt.issue(user);events.publish(user);return new Session(token,UserView.of(user));
  }
  @GetMapping("/api/auth/me") public UserView me(org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken auth){return users.findById(Long.valueOf(auth.getName())).map(UserView::of).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED));}
@@ -33,7 +35,7 @@ public class AuthController {
  @DeleteMapping("/api/users/{id}") @PreAuthorize("hasRole('ADMIN')") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable Long id){users.delete(find(id));}
  private UserAccount find(Long id){return users.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Usuário não encontrado"));}
  private UserView save(UserAccount user,UserInput input){
-  String email=input.email().trim().toLowerCase();
+  String email=input.email().trim().toLowerCase(Locale.ROOT);
   users.findByEmail(email).filter(u->!Objects.equals(u.id,user.id)).ifPresent(u->{throw new ResponseStatusException(HttpStatus.CONFLICT,"E-mail já cadastrado");});
   if(user.id==null&&(input.password()==null||input.password().length()<8))throw new IllegalArgumentException("Senha deve conter pelo menos 8 caracteres");
   if(input.password()!=null&&!input.password().isBlank()){if(input.password().length()<8||input.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72)throw new IllegalArgumentException("Senha deve conter de 8 caracteres a 72 bytes");user.passwordHash=passwords.encode(input.password());}

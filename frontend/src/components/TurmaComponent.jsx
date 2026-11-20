@@ -1,3 +1,4 @@
+import Notification from './Notification';
 import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -333,11 +334,7 @@ export default function TurmaComponent() {
         </button>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ margin: '16px 0' }}>
-          {message.text}
-        </div>
-      )}
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       {/* Barra de Filtros e Busca de Turmas */}
       <div

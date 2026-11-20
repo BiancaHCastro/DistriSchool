@@ -94,7 +94,7 @@ public class TurmaController {
         if (novoHorario == null || novoHorario.trim().isEmpty() || teacherId == null || semestre == null) return false;
 
         List<Turma> turmasProfessor = turmaRepository.findAll().stream()
-                .filter(t -> teacherId.equals(t.getTeacherId()) && semestre.trim().equalsIgnoreCase(t.getSemestre().trim()))
+                .filter(t -> teacherId.equals(t.getTeacherId()) && t.getSemestre() != null && semestre.trim().equalsIgnoreCase(t.getSemestre().trim()))
                 .filter(t -> ignoreId == null || !ignoreId.equals(t.getId()))
                 .toList();
 

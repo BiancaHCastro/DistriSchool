@@ -1,3 +1,5 @@
+import Notification from './Notification';
+import ExportButtons from './ExportButtons';
 import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect } from 'react';
 
@@ -175,11 +177,7 @@ export default function AttendanceComponent() {
         </button>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ marginBottom: '16px' }}>
-          {message.text}
-        </div>
-      )}
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       {activeSubTab === 'chamada' && (
         <div className="card attendance-card">
@@ -289,6 +287,7 @@ export default function AttendanceComponent() {
         <div className="card report-card">
           <div className="card-header">
             <h2>Relatório de Frequência - {turmaId || 'Selecione uma Turma'}</h2>
+            <ExportButtons endpoint="/attendance/relatorio/export" filename="frequencia" turmaId={turmaId}/>
             <button className="btn-secondary" onClick={fetchReport}>Atualizar Relatório</button>
           </div>
 

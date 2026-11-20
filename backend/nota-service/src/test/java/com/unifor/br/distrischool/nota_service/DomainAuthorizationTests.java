@@ -21,4 +21,31 @@ class DomainAuthorizationTests {
  mvc.perform(get("/api/notas/aluno/13").with(as("ROLE_ALUNO",12L))).andExpect(status().isForbidden());
  mvc.perform(post("/api/notas").with(as("ROLE_ALUNO",12L)).contentType(MediaType.APPLICATION_JSON).content("{\"alunoId\":12,\"turmaId\":\"T-1\",\"nota1\":10}")).andExpect(status().isForbidden());
  }
+ @Test void situacaoMantemEscopoDoAluno() throws Exception {
+  var nota = new com.unifor.br.distrischool.nota_service.model.Nota();
+  nota.setAlunoId(24L);
+  nota.setTurmaId("T-2");
+  nota.setNota1(8.0);
+  nota.setNota2(6.0);
+  nota.setNotaFinal(0.0);
+  repo.save(nota);
+  mvc.perform(get("/api/notas/aluno/24/situacao").with(as("ROLE_ALUNO", 24L)))
+          .andExpect(status().isOk()).andExpect(jsonPath("$[0].situacao").value("APROVADO"))
+          .andExpect(jsonPath("$[0].mediaFinal").value(7.0));
+  mvc.perform(get("/api/notas/aluno/24/situacao").with(as("ROLE_ALUNO", 25L)))
+          .andExpect(status().isForbidden());
+ }
+ @Test void notaInexistenteRetorna404AoExcluir() throws Exception {
+  mvc.perform(delete("/api/notas/{id}", Long.MAX_VALUE).with(as("ROLE_ADMIN", 1L)))
+          .andExpect(status().isNotFound());
+ }
+ @Test void relatorioPdfRetornaArquivo() throws Exception {
+  var response = mvc.perform(get("/api/notas/relatorio/export").param("formato", "pdf")
+          .with(as("ROLE_ADMIN", 1L))).andExpect(status().isOk())
+          .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+          .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("notas.pdf")))
+          .andReturn().getResponse();
+  org.junit.jupiter.api.Assertions.assertTrue(
+          new String(response.getContentAsByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1).startsWith("%PDF-"));
+ }
 }

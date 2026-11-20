@@ -15,16 +15,21 @@ import java.util.Map;
 @Service
 public class AttendanceService {
 
+    private final com.unifor.br.distrischool.attendance_service.Notifications notifications;
+
     private final AttendanceRepository repository;
     private final RabbitTemplate rabbitTemplate;
 
     private static final String QUEUE_NAME = "attendance.recorded";
 
-    public AttendanceService(AttendanceRepository repository, RabbitTemplate rabbitTemplate) {
+    public AttendanceService(AttendanceRepository repository, RabbitTemplate rabbitTemplate,
+                       com.unifor.br.distrischool.attendance_service.Notifications notifications) {
+        this.notifications = notifications;
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public Attendance registrarChamada(AttendanceRequestDTO dto) {
         Attendance attendance = new Attendance(
                 dto.getAlunoId(),
@@ -32,8 +37,11 @@ public class AttendanceService {
                 dto.getData() != null ? dto.getData() : LocalDate.now(),
                 dto.getStatus()
         );
-        repository.findAll().stream().filter(a->java.util.Objects.equals(a.getAlunoId(),attendance.getAlunoId())&&java.util.Objects.equals(a.getTurmaId(),attendance.getTurmaId())&&java.util.Objects.equals(a.getData(),attendance.getData())).findFirst().ifPresent(a->attendance.setId(a.getId()));
-        Attendance saved = repository.save(attendance);
+        var previous = repository.findFirstByAlunoIdAndTurmaIdAndDataOrderByIdAsc(
+                attendance.getAlunoId(), attendance.getTurmaId(), attendance.getData());
+        AttendanceStatus previousStatus = previous.map(Attendance::getStatus).orElse(null);
+        previous.ifPresent(record -> attendance.setId(record.getId()));
+        Attendance saved = repository.saveAndFlush(attendance);
 
         try {
             rabbitTemplate.convertAndSend(QUEUE_NAME, saved);
@@ -41,6 +49,11 @@ public class AttendanceService {
             System.err.println("Erro ao publicar evento no RabbitMQ: " + e.getMessage());
         }
 
+        if (saved.getStatus() == AttendanceStatus.FALTA
+                && previousStatus != AttendanceStatus.FALTA) {
+            notifications.sendAcademic("FALTA_REGISTRADA", saved.getAlunoId(), "Falta registrada",
+                    "Turma " + saved.getTurmaId() + ", data " + saved.getData());
+        }
         return saved;
     }
 
@@ -50,7 +63,7 @@ public class AttendanceService {
         } else if (turmaId != null) {
             return repository.findAll().stream().filter(a -> a.getTurmaId().equals(turmaId)).toList();
         }
-        return repository.findAll();
+        return data == null ? repository.findAll() : repository.findByData(data);
     }
 
     public Map<String, Object> consultarRelatorio(Long alunoId, String turmaId) {

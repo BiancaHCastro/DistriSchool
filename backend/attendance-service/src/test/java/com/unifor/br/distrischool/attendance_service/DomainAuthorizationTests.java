@@ -21,4 +21,18 @@ class DomainAuthorizationTests {
  mvc.perform(get("/presencas/relatorio?alunoId=13").with(as("ROLE_ALUNO",12L))).andExpect(status().isForbidden());
  mvc.perform(post("/presencas").with(as("ROLE_ALUNO",12L)).contentType(MediaType.APPLICATION_JSON).content("{\"alunoId\":12,\"turmaId\":\"T-1\",\"status\":\"PRESENCA\",\"data\":\"2026-11-15\"}")).andExpect(status().isForbidden());
  }
+ @Test void relatorioCsvAplicaFiltroDeDataEOProprioAluno() throws Exception {
+  var date = java.time.LocalDate.of(2026, 11, 20);
+  var statusPresenca = com.unifor.br.distrischool.attendance_service.model.AttendanceStatus.PRESENCA;
+  repo.save(new com.unifor.br.distrischool.attendance_service.model.Attendance(41L, "T-1", date, statusPresenca));
+  repo.save(new com.unifor.br.distrischool.attendance_service.model.Attendance(42L, "T-1", date, statusPresenca));
+  repo.save(new com.unifor.br.distrischool.attendance_service.model.Attendance(41L, "T-1", date.minusDays(1), statusPresenca));
+  var response = mvc.perform(get("/api/attendance/relatorio/export").param("formato", "csv")
+          .param("data", date.toString()).with(as("ROLE_ALUNO", 41L)))
+          .andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("text/csv"))
+          .andReturn().getResponse();
+  var csv = response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+  org.junit.jupiter.api.Assertions.assertEquals(2L, csv.lines().count());
+  org.junit.jupiter.api.Assertions.assertTrue(csv.contains("2026-11-20"));
+ }
 }

@@ -1,21 +1,89 @@
+import Notification from './Notification';
+import AcademicSituation from './AcademicSituation';
 import {useEffect,useState} from 'react';
 import {api} from '../auth/http';
 import {useAuth} from '../auth/AuthContext';
 function Table({rows,fields,actions}){return <div className="table-responsive"><table className="academic-table"><thead><tr>{fields.map(([key,label])=><th key={key}>{label}</th>)}{actions&&<th>Ações</th>}</tr></thead><tbody>{rows.map((row,index)=><tr key={row.id??index}>{fields.map(([key])=><td key={key}>{row[key]??'—'}</td>)}{actions&&<td>{actions(row)}</td>}</tr>)}{!rows.length&&<tr><td colSpan={fields.length+(actions?1:0)}>Nenhum registro disponível.</td></tr>}</tbody></table></div>;}
-function ErrorMessage({error}){return error?<p role="alert">{error}</p>:null;}
+function ErrorMessage({error}){return <Notification text={error}/>;}
 export function Profile(){const {user}=useAuth();const [profile,setProfile]=useState(null),[error,setError]=useState(''),[message,setMessage]=useState('');
  useEffect(()=>{if(user.academicId)api('/teachers/'+user.academicId).then(setProfile).catch(e=>setError(e.message));},[user.academicId]);
  async function save(event){event.preventDefault();setError('');try{setProfile(await api('/teachers/'+user.academicId,{method:'PUT',body:JSON.stringify(profile)}));setMessage('Perfil atualizado.');}catch(e){setError(e.message);}}
  return <section className="card"><h3>Meu perfil docente</h3><ErrorMessage error={error}/>{message&&<p role="status">{message}</p>}{profile?<form className="record-form" onSubmit={save}>{['nome','email','telefone','especialidade'].map(key=><label key={key}>{key}<input required={['nome','email'].includes(key)} type={key==='email'?'email':'text'} value={profile[key]||''} onChange={e=>setProfile({...profile,[key]:e.target.value})}/></label>)}<button>Salvar perfil</button></form>:<p>{user.academicId?'Carregando perfil…':'Solicite à administração o vínculo do seu usuário ao cadastro docente.'}</p>}</section>;
 }
 export function TeacherClasses(){const [turmas,setTurmas]=useState([]),[students,setStudents]=useState([]),[error,setError]=useState('');useEffect(()=>{api('/turmas').then(setTurmas).catch(e=>setError(e.message));api('/students').then(setStudents).catch(e=>setError(e.message));},[]);return <div className="academic-grid"><section className="card"><h3>Minhas turmas</h3><ErrorMessage error={error}/><Table rows={turmas} fields={[["codigo","Código"],["nomeDisciplina","Disciplina"],["semestre","Semestre"],["horario","Horário"]]}/></section><section className="card"><h3>Discentes das minhas turmas</h3><Table rows={students} fields={[["matricula","Matrícula"],["nome","Nome"]]}/></section></div>;}
-export function StudentArea(){const {user}=useAuth();const [data,setData]=useState({students:[],turmas:[],disciplinas:[],notas:[],matriculas:[],frequency:null}),[errors,setErrors]=useState([]),[message,setMessage]=useState('');
- const load=()=>{const paths={students:'/students',turmas:'/turmas',disciplinas:'/disciplinas',notas:'/notas',matriculas:'/matriculas',frequency:'/academic/presencas/relatorio'};setErrors([]);Object.entries(paths).forEach(([key,url])=>api(url).then(value=>setData(previous=>({...previous,[key]:value}))).catch(e=>setErrors(previous=>[...previous,e.message])));};useEffect(load,[]);
- async function request(turmaId){try{await api('/matriculas',{method:'POST',body:JSON.stringify({turmaId})});setMessage('Solicitação de matrícula enviada.');load();}catch(e){setMessage(e.message);}}
+export function StudentArea(){const {user}=useAuth();const [data,setData]=useState({students:[],turmas:[],teachers:[],matriculas:[],frequency:null}),[errors,setErrors]=useState([]),[message,setMessage]=useState('');
+ const load=()=>{const paths={students:'/students',turmas:'/turmas',teachers:'/teachers/directory',matriculas:'/matriculas',frequency:'/academic/presencas/relatorio'};setErrors([]);Object.entries(paths).forEach(([key,url])=>api(url).then(value=>setData(previous=>({...previous,[key]:value}))).catch(e=>setErrors(previous=>[...previous,e.message])));};useEffect(load,[]);
+ async function request(turmaId){try{await api('/matriculas',{method:'POST',body:JSON.stringify({turmaId})});setMessage('Solicitação de matrícula enviada.');load();}catch(e){setErrors([e.message]);}}
+ const teachersById = new Map(data.teachers.map(teacher => [String(teacher.id), teacher.nome]));
+ const turmas = data.turmas.map(turma => ({
+  ...turma,
+  professor: teachersById.get(String(turma.teacherId)) ?? (turma.teacherId ? 'Professor indisponível' : 'A definir'),
+ }));
+ const turmasById = new Map(turmas.map(turma => [String(turma.id), turma]));
+ const requests = data.matriculas.map(request => ({ ...request, ...turmaDetails(turmasById.get(String(request.turmaId)), request.turmaId) }));
  const profile=data.students.find(s=>s.id===user.academicId);
- return <div className="academic-grid">{errors.length>0&&<p role="alert">Alguns dados não puderam ser carregados: {[...new Set(errors)].join(' ')}</p>}{message&&<p role="status">{message}</p>}<section className="card"><h3>Meu perfil</h3>{profile?<p>{profile.nome} · Matrícula {profile.matricula} · {profile.contato}</p>:<p>{user.name} · {user.email}{!user.academicId&&' — Solicite à administração o vínculo ao seu cadastro de aluno.'}</p>}</section><section className="card"><h3>Disciplinas</h3><Table rows={data.disciplinas} fields={[["nome","Disciplina"],["cargaHoraria","Carga horária"]]}/></section><section className="card"><h3>Turmas e solicitação de matrícula</h3><Table rows={data.turmas} fields={[["codigo","Código"],["nomeDisciplina","Disciplina"],["semestre","Semestre"]]} actions={t=><button disabled={!user.academicId||data.matriculas.some(m=>m.turmaId===t.id)} onClick={()=>request(t.id)}>Solicitar matrícula</button>}/></section><section className="card"><h3>Minhas solicitações</h3><Table rows={data.matriculas} fields={[["turmaId","Turma"],["status","Situação"]]}/></section><section className="card"><h3>Minhas notas</h3><Table rows={data.notas} fields={[["turmaId","Turma"],["nota1","AV1"],["nota2","AV2"],["notaFinal","Avaliação final"],["valor","Nota de avaliação"]]}/></section><section className="card"><h3>Minha frequência</h3><p>{data.frequency?.percentualPresenca!=null?'Presença: '+data.frequency.percentualPresenca.toFixed(1)+'%':'Sem dados de frequência.'}</p><Table rows={data.frequency?.historico||[]} fields={[["turmaId","Turma"],["data","Data"],["status","Frequência"]]}/></section></div>;
+ return <div className="academic-grid"><Notification text={[...new Set(errors)].join(" ")} onClose={()=>setErrors([])}/>{message&&<p role="status">{message}</p>}<section className="card"><h3>Meu perfil</h3>{profile?<p>{profile.nome} · Matrícula {profile.matricula} · {profile.contato}</p>:<p>{user.name} · {user.email}{!user.academicId&&' — Solicite à administração o vínculo ao seu cadastro de aluno.'}</p>}</section><section className="card"><h3>Turmas e solicitação de matrícula</h3><Table rows={turmas} fields={[["codigo","Código"],["nomeDisciplina","Disciplina"],["semestre","Semestre"],["horario","Horário"],["professor","Professor"]]} actions={t=><button disabled={!user.academicId||data.matriculas.some(m=>String(m.turmaId)===String(t.id))} onClick={()=>request(t.id)}>Solicitar matrícula</button>}/></section><section className="card"><h3>Minhas solicitações</h3><Table rows={requests} fields={enrollmentFields}/></section><AcademicSituation key={user.academicId} alunoId={user.academicId}/><section className="card"><h3>Minha frequência</h3><p>{data.frequency?.percentualPresenca!=null?'Presença: '+data.frequency.percentualPresenca.toFixed(1)+'%':'Sem dados de frequência.'}</p><Table rows={data.frequency?.historico||[]} fields={[["turmaId","Turma"],["data","Data"],["status","Frequência"]]}/></section></div>;
 }
-export function EnrollmentRequests(){const [rows,setRows]=useState([]),[error,setError]=useState('');const load=()=>api('/matriculas').then(setRows).catch(e=>setError(e.message));useEffect(()=>{load();},[]);async function approve(id){try{await api('/matriculas/'+id+'/aprovar',{method:'PUT'});await load();}catch(e){setError(e.message);}}return <section className="card"><h3>Solicitações de matrícula</h3><ErrorMessage error={error}/><Table rows={rows} fields={[["alunoId","Aluno"],["turmaId","Turma"],["status","Situação"]]} actions={r=>r.status==='PENDENTE'&&<button onClick={()=>approve(r.id)}>Aprovar matrícula</button>}/></section>;}
+const enrollmentFields = [
+ ["turma","Turma"], ["semestre","Semestre"], ["horario","Horário"],
+ ["professor","Professor"], ["status","Situação"],
+];
+
+function turmaDetails(turma, id) {
+ return {
+  turma: turma ? [turma.codigo, turma.nomeDisciplina].filter(Boolean).join(' · ') : 'Turma #' + id,
+  semestre: turma?.semestre,
+  horario: turma?.horario,
+  professor: turma?.professor,
+ };
+}
+
+export function EnrollmentRequests() {
+ const [rows, setRows] = useState([]);
+ const [students, setStudents] = useState([]);
+ const [turmas, setTurmas] = useState([]);
+ const [teachers, setTeachers] = useState([]);
+ const [error, setError] = useState('');
+ const load = () => api('/matriculas').then(setRows).catch(failure => setError(failure.message));
+ useEffect(() => {
+  load();
+  api('/students').then(setStudents).catch(failure => setError(failure.message));
+  api('/turmas').then(setTurmas).catch(failure => setError(failure.message));
+  api('/teachers').then(setTeachers).catch(failure => setError(failure.message));
+ }, []);
+
+ async function approve(id) {
+  setError('');
+  try {
+   await api('/matriculas/' + id + '/aprovar', { method: 'PUT' });
+   await load();
+  } catch (failure) {
+   setError(failure.message);
+  }
+ }
+
+ const studentsById = new Map(students.map(student => [String(student.id), student]));
+ const teachersById = new Map(teachers.map(teacher => [String(teacher.id), teacher.nome]));
+ const turmasById = new Map(turmas.map(turma => [String(turma.id), {
+  ...turma, professor: teachersById.get(String(turma.teacherId)),
+ }]));
+ const details = rows.map(row => {
+  const student = studentsById.get(String(row.alunoId));
+  return {
+   ...row,
+   aluno: student ? [student.nome, student.matricula].filter(Boolean).join(' · ') : 'Aluno #' + row.alunoId,
+   ...turmaDetails(turmasById.get(String(row.turmaId)), row.turmaId),
+  };
+ });
+
+ return <section className="card">
+  <h3>Solicitações de matrícula</h3>
+  <Notification text={error} onClose={() => setError('')}/>
+  <Table rows={details} fields={[["aluno","Aluno"], ...enrollmentFields]} actions={row =>
+   row.status === 'PENDENTE' && <button onClick={() => approve(row.id)}>Aprovar matrícula</button>
+  }/>
+ </section>;
+}
 export function AdminRecords({kind}){
  const users=kind==='users';const empty=users?{email:'',name:'',password:'',role:'ROLE_ALUNO',academicId:''}:{nome:'',cargaHoraria:''};
  const [rows,setRows]=useState([]),[profiles,setProfiles]=useState([]),[form,setForm]=useState(empty),[error,setError]=useState('');const load=()=>api('/'+kind).then(setRows).catch(e=>setError(e.message));useEffect(()=>{load();},[kind]);

@@ -1,7 +1,7 @@
 package com.unifor.br.api_gateway.security;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.Arrays;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
@@ -39,13 +39,19 @@ public class SecurityConfig {
         return http.csrf(c -> c.disable()).cors(c -> {})
             .sessionManagement(c -> c.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/auth/login", "/actuator/health").permitAll().anyRequest().authenticated())
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/login", "/api/auth/register",
+                        "/api/auth/verify-email", "/api/auth/verify-email/resend",
+                        "/api/auth/password-reset/request", "/api/auth/password-reset/confirm").permitAll()
+                .requestMatchers( "/actuator/health").permitAll().anyRequest().authenticated())
             .oauth2ResourceServer(c -> c.jwt(j -> j.jwtAuthenticationConverter(converter))).build();
     }
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource(
+            @Value("${APP_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}")
+            String allowedOrigins) {
         var cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"));
+        cors.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim).filter(origin -> !origin.isEmpty()).toList());
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         var source = new UrlBasedCorsConfigurationSource(); source.registerCorsConfiguration("/**", cors); return source;

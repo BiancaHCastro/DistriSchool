@@ -1,3 +1,4 @@
+import Notification from './Notification';
 import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect } from 'react';
 
@@ -132,11 +133,7 @@ export default function ProfessorComponent() {
         </button>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ margin: '16px 0' }}>
-          {message.text}
-        </div>
-      )}
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       <div className="table-responsive">
         <table className="attendance-table">

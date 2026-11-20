@@ -1,3 +1,5 @@
+import Notification from './Notification';
+import ExportButtons from './ExportButtons';
 import {apiFetch, API_BASE} from '../auth/http';
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -175,13 +177,7 @@ export default function GradeComponent() {
         s.matricula.toLowerCase().includes(filtroTexto.toLowerCase());
 
       const g = gradeMap[s.id];
-      const n1 = g?.nota1 ?? 0;
-      const n2 = g?.nota2 ?? 0;
-      const media = (n1 + n2) / 2;
-      let situacao = 'EM_ANDAMENTO';
-      if (g?.nota1 !== undefined && g?.nota2 !== undefined && g?.nota1 !== null && g?.nota2 !== null) {
-        situacao = media >= 7 ? 'APROVADO' : media >= 4 ? 'RECUPERACAO' : 'REPROVADO';
-      }
+      const situacao = g?.situacao ?? 'PENDENTE';
 
       const matchSituacao = filtroSituacao === 'ALL' || situacao === filtroSituacao;
 
@@ -221,11 +217,9 @@ export default function GradeComponent() {
         </div>
       </div>
 
-      {message.text && (
-        <div className={`alert alert-${message.type}`} style={{ margin: '16px 0' }}>
-          {message.text}
-        </div>
-      )}
+      <ExportButtons endpoint="/notas/relatorio/export" filename="notas" turmaId={selectedClass?.codigo || selectedTurmaId}/>
+
+      <Notification text={message.text} type={message.type} onClose={() => setMessage({ type: '', text: '' })}/>
 
       {/* Barra de Filtros e Busca de Notas */}
       <div
@@ -260,9 +254,9 @@ export default function GradeComponent() {
           >
             <option value="ALL">Todas as Situações</option>
             <option value="APROVADO">Aprovado (Média ≥ 7.0)</option>
-            <option value="RECUPERACAO">Recuperação (4.0 a 6.9)</option>
+            <option value="EM_AVF">Em AVF</option>
             <option value="REPROVADO">Reprovado (&lt; 4.0)</option>
-            <option value="EM_ANDAMENTO">Em Andamento</option>
+            <option value="PENDENTE">Pendente</option>
           </select>
         </div>
       </div>
@@ -295,27 +289,19 @@ export default function GradeComponent() {
                 const n2 = g?.nota2 ?? null;
                 const nf = g?.notaFinal ?? null;
                 
-                let media = null;
-                let sit = 'EM_ANDAMENTO';
-                if (n1 !== null && n2 !== null) {
-                  media = (n1 + n2) / 2;
-                  if (nf !== null) {
-                    media = (media + nf) / 2;
-                    sit = media >= 5 ? 'APROVADO' : 'REPROVADO';
-                  } else {
-                    sit = media >= 7 ? 'APROVADO' : media >= 4 ? 'RECUPERACAO' : 'REPROVADO';
-                  }
-                }
+                const media = g?.mediaFinal ?? g?.media ?? null;
+                const sit = g?.situacao ?? 'PENDENTE';
+
 
                 let sitClass = 'badge-atraso';
-                let sitLabel = 'Em Andamento';
+                let sitLabel = 'Pendente';
 
                 if (sit === 'APROVADO') {
                   sitClass = 'badge-presenca';
                   sitLabel = 'Aprovado';
-                } else if (sit === 'RECUPERACAO') {
+                } else if (sit === 'EM_AVF') {
                   sitClass = 'badge-atraso';
-                  sitLabel = 'Em Recuperação';
+                  sitLabel = 'Em AVF';
                 } else if (sit === 'REPROVADO') {
                   sitClass = 'badge-falta';
                   sitLabel = 'Reprovado';

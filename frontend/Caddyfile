@@ -1,0 +1,12 @@
+{$PUBLIC_DOMAIN} {
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy api-gateway:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

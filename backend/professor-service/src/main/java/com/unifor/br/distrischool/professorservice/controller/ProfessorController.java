@@ -32,6 +32,14 @@ public class ProfessorController {
         }
     }
 
+    public record ProfessorName(Long id, String nome) {}
+
+    @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR','ALUNO')")
+    @GetMapping("/directory")
+    public List<ProfessorName> directory() {
+        return service.listar().stream().map(professor -> new ProfessorName(professor.getId(), professor.getNome())).toList();
+    }
+
     @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR')")
     @GetMapping
     public List<Professor> listar() {
@@ -48,12 +56,15 @@ public class ProfessorController {
 
     @PreAuthorize("hasRole('ADMIN') or (hasRole('PROFESSOR') and T(com.unifor.br.distrischool.professorservice.security.Identity).own(#id))")
     @PutMapping("/{id}")
-    public ResponseEntity<Professor> atualizar(
+    public ResponseEntity<?> atualizar(
             @PathVariable Long id,
             @Valid @RequestBody Professor professor) {
-        return service.atualizar(id, professor)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            return service.atualizar(id, professor).map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (IllegalArgumentException | org.springframework.dao.DataIntegrityViolationException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("E-mail já cadastrado para outro professor.");
+        }
     }
 
     @PreAuthorize("hasRole('ADMIN')")

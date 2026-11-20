@@ -42,3 +42,11 @@ target/
 .idea/
 *.iml
 .vscode/
+
+# Local secrets and Gradle output
+.env
+.env.production
+**/.gradle/
+**/build/
+**/bin/
+!**/gradle/wrapper/gradle-wrapper.jar

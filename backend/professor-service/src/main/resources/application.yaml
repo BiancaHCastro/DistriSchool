@@ -10,7 +10,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -21,7 +21,4 @@ spring:
     username: guest
     password: guest
 
----
-spring:
-  profiles:
-    include: resilience
+

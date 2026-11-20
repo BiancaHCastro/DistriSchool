@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 @RestController @RequestMapping("/api/matriculas")
 public class MatriculaController {
+ @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
  private final SolicitacaoRepository requests;private final TurmaRepository turmas;private final MatriculaTurmaRepository matriculas;
  public MatriculaController(SolicitacaoRepository requests,TurmaRepository turmas,MatriculaTurmaRepository matriculas){this.requests=requests;this.turmas=turmas;this.matriculas=matriculas;}
  public record Request(Long turmaId){}
@@ -23,11 +24,17 @@ public class MatriculaController {
  }
  @PutMapping("/{id}/aprovar") @PreAuthorize("hasRole('ADMIN')") @Transactional
  public SolicitacaoMatricula approve(@PathVariable Long id){
-  var r=requests.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+  var r=requests.findLockedById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
   var t=turmas.findById(r.turmaId).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
   if(!matriculas.existsByTurmaIdAndAlunoId(t.getId(),r.alunoId)){
    if(t.getCapacidadeMaxima()!=null&&matriculas.findByTurmaId(t.getId()).size()>=t.getCapacidadeMaxima())throw new ResponseStatusException(HttpStatus.CONFLICT,"Turma lotada");
    matriculas.save(new MatriculaTurma(t.getId(),r.alunoId));
-  }r.status="APROVADA";return requests.save(r);
+  }
+  if (!"APROVADA".equals(r.status)) {
+   r.status = "APROVADA";
+   requests.save(r);
+   events.publishEvent(new ApprovalNotifications.Approved(r.alunoId, r.turmaId));
+  }
+  return r;
  }
 }

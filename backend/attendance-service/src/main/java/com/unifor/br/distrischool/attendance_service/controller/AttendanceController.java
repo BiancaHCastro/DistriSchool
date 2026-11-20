@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping(value = {"/presencas", "/api/academic/presencas"}, produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = {"/presencas", "/api/academic/presencas", "/api/attendance"}, produces = MediaType.APPLICATION_JSON_VALUE)
 @CrossOrigin(origins = "*")
 public class AttendanceController {
 
@@ -46,6 +46,18 @@ public class AttendanceController {
         if(Identity.role("ALUNO"))list=list.stream().filter(a->Identity.own(a.getAlunoId())).toList();
         else if(!Identity.role("ADMIN")){var allowed=access.scope().turmaIds();list=list.stream().filter(a->allowed.contains(a.getTurmaId())).toList();}
         return ResponseEntity.ok(list);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR','ALUNO')")
+    @GetMapping(value = "/relatorio/export", produces = {"text/csv", "application/pdf"})
+    public ResponseEntity<byte[]> exportar(@RequestParam String formato,
+            @RequestParam(required = false) String turmaId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
+        var rows = listar(turmaId, data).getBody().stream()
+                .map(a -> List.of(String.valueOf(a.getAlunoId()), a.getTurmaId(),
+                        a.getData().toString(), a.getStatus().name())).toList();
+        return ReportExport.download(formato, "frequencia", "Relatorio de Frequencia",
+                List.of("Aluno", "Turma", "Data", "Status"), rows);
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','PROFESSOR','ALUNO')")

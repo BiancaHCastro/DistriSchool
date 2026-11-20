@@ -11,7 +11,7 @@ spring:
     password: password
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
   rabbitmq:
     host: rabbitmq
     connection-timeout: 500ms
