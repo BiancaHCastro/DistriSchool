@@ -39,9 +39,7 @@ public class SecurityConfig {
         return http.csrf(c -> c.disable()).cors(c -> {})
             .sessionManagement(c -> c.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(c -> c.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/login", "/api/auth/register",
-                        "/api/auth/verify-email", "/api/auth/verify-email/resend",
-                        "/api/auth/password-reset/request", "/api/auth/password-reset/confirm").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers("/internal/notifications/student/*",  "/actuator/health").permitAll().anyRequest().authenticated())
             .oauth2ResourceServer(c -> c.jwt(j -> j.jwtAuthenticationConverter(converter))).build();
     }

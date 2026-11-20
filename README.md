@@ -62,10 +62,8 @@ Frontend: `cd frontend`, `npm ci`, `npm test` e `npm run build`. Vitest/Testing 
 
 ## Conta, situação acadêmica e exportação
 
-- Acesse `/register` para criar uma conta de aluno. O link enviado para `/verify-email` expira em 24 horas.
-- Em `/password-reset`, solicite a redefinição de senha. Cada novo pedido substitui o token anterior. O link expira em 30 minutos.
-- Em ambiente local, `docker compose logs -f auth-service` exibe destinatário, assunto e link das mensagens da fila durável `notification.sent` com o perfil `local-notifications`.
-- Para testar a entrega SMTP sem enviar e-mails reais, rode `docker compose -f docker-compose.yml -f compose.mail-test.yml up -d --build` na raiz e abra a caixa de entrada do Mailpit em `http://localhost:8025`. Cadastre um aluno, abra o link de confirmação e teste **Esqueci minha senha** com o mesmo endereço. O frontend local deve estar no endereço configurado em `APP_PUBLIC_URL`. [Docker do Mailpit](https://mailpit.axllent.org/docs/install/docker/)
+- Administradores criam contas em **Usuários → Criar usuário**, definem a senha inicial e podem vincular o cadastro acadêmico. A nova conta já pode entrar. Para trocar a senha ou liberar uma conta legada pendente, abra **Editar** e preencha **Nova senha**.
+- Em ambiente local, `docker compose logs -f auth-service` exibe eventos acadêmicos da fila durável `notification.sent` com o perfil `local-notifications`.
 - `GET /api/notas/aluno/{alunoId}/situacao` retorna notas e situação por turma de acordo com o vínculo do usuário.
 - As exportações estão em `GET /api/notas/relatorio/export` e `GET /api/attendance/relatorio/export`, com `formato=csv|pdf` e filtros acadêmicos opcionais.
 

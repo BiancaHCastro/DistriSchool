@@ -3,6 +3,7 @@ import AcademicSituation from './AcademicSituation';
 import {useEffect,useState} from 'react';
 import {api} from '../auth/http';
 import {useAuth} from '../auth/AuthContext';
+import {roleLabels} from '../auth/AuthHeader';
 function Table({rows,fields,actions}){return <div className="table-responsive"><table className="academic-table"><thead><tr>{fields.map(([key,label])=><th key={key}>{label}</th>)}{actions&&<th>Ações</th>}</tr></thead><tbody>{rows.map((row,index)=><tr key={row.id??index}>{fields.map(([key])=><td key={key}>{row[key]??'—'}</td>)}{actions&&<td>{actions(row)}</td>}</tr>)}{!rows.length&&<tr><td colSpan={fields.length+(actions?1:0)}>Nenhum registro disponível.</td></tr>}</tbody></table></div>;}
 function ErrorMessage({error}){return <Notification text={error}/>;}
 export function Profile(){const {user}=useAuth();const [profile,setProfile]=useState(null),[error,setError]=useState(''),[message,setMessage]=useState('');
@@ -84,12 +85,117 @@ export function EnrollmentRequests() {
   }/>
  </section>;
 }
-export function AdminRecords({kind}){
- const users=kind==='users';const empty=users?{email:'',name:'',password:'',role:'ROLE_ALUNO',academicId:''}:{nome:'',cargaHoraria:''};
- const [rows,setRows]=useState([]),[profiles,setProfiles]=useState([]),[form,setForm]=useState(empty),[error,setError]=useState('');const load=()=>api('/'+kind).then(setRows).catch(e=>setError(e.message));useEffect(()=>{load();},[kind]);
- useEffect(()=>{if(!users||form.role==='ROLE_ADMIN'){setProfiles([]);return;}api(form.role==='ROLE_PROFESSOR'?'/teachers':'/students').then(setProfiles).catch(e=>setError(e.message));},[users,form.role]);
- async function save(event){event.preventDefault();setError('');try{const payload=users?{...form,academicId:form.academicId===''?null:Number(form.academicId)}:{...form,cargaHoraria:Number(form.cargaHoraria)};await api('/'+kind+(form.id?'/'+form.id:''),{method:form.id?'PUT':'POST',body:JSON.stringify(payload)});setForm(empty);await load();}catch(e){setError(e.message);}}
- async function remove(id){try{await api('/'+kind+'/'+id,{method:'DELETE'});await load();}catch(e){setError(e.message);}}
- const fields=users?[["email","E-mail"],["name","Nome"],["role","Perfil"],["academicId","ID do cadastro acadêmico"]]:[["nome","Nome"],["cargaHoraria","Carga horária"]];
- return <section className="card"><h3>{users?'Usuários':'Disciplinas'}</h3><ErrorMessage error={error}/>{users&&<p>Vincule o ID do cadastro de aluno ou professor ao usuário correspondente. O usuário deve entrar novamente após a alteração.</p>}<form className="record-form" onSubmit={save}>{fields.map(([key,label])=><label key={key}>{label}{key==='role'?<select value={form.role} onChange={e=>setForm({...form,role:e.target.value,academicId:''})}><option value="ROLE_ADMIN">Administrador</option><option value="ROLE_PROFESSOR">Professor</option><option value="ROLE_ALUNO">Aluno</option></select>:key==='academicId'?<select disabled={form.role==='ROLE_ADMIN'} value={form.academicId??''} onChange={e=>setForm({...form,academicId:e.target.value})}><option value="">Sem vínculo</option>{profiles.map(profile=><option key={profile.id} value={profile.id}>{profile.nome}{profile.matricula?' · '+profile.matricula:' · '+profile.email}</option>)}</select>:<input type={key==='cargaHoraria'?'number':key==='email'?'email':'text'} required={key!=='academicId'} value={form[key]??''} onChange={e=>setForm({...form,[key]:e.target.value})}/>}</label>)}{users&&<label>Senha<input type="password" minLength={8} autoComplete="new-password" required={!form.id} value={form.password||''} onChange={e=>setForm({...form,password:e.target.value})}/></label>}<button>{form.id?'Salvar alterações':'Cadastrar'}</button>{form.id&&<button type="button" onClick={()=>setForm(empty)}>Cancelar edição</button>}</form><Table rows={rows} fields={fields} actions={row=><><button onClick={()=>setForm({...row,password:''})}>Editar</button><button onClick={()=>remove(row.id)}>Excluir</button></>}/></section>;
+const emptyUser = { email: '', name: '', password: '', role: 'ROLE_ALUNO', academicId: '' };
+const userFields = [
+ ["name", "Nome"], ["email", "E-mail"], ["roleLabel", "Perfil"], ["academicId", "ID do cadastro acadêmico"],
+];
+
+export function AdminRecords() {
+ const [rows, setRows] = useState([]);
+ const [directory, setDirectory] = useState(null);
+ const [form, setForm] = useState(emptyUser);
+ const [error, setError] = useState('');
+ const [message, setMessage] = useState('');
+ const [loading, setLoading] = useState(true);
+ const [busy, setBusy] = useState(false);
+
+ useEffect(() => {
+  let active = true;
+  api('/users').then(data => { if (active) setRows(data); })
+   .catch(failure => { if (active) setError(failure.message); })
+   .finally(() => { if (active) setLoading(false); });
+  return () => { active = false; };
+ }, []);
+
+ useEffect(() => {
+  const role = form.role;
+  if (role === 'ROLE_ADMIN') return;
+  let active = true;
+  api(role === 'ROLE_PROFESSOR' ? '/teachers' : '/students')
+   .then(profiles => { if (active) setDirectory({ role, profiles }); })
+   .catch(failure => { if (active) setError(failure.message); });
+  return () => { active = false; };
+ }, [form.role]);
+
+ const profiles = directory?.role === form.role ? directory.profiles : [];
+ const linkedId = form.academicId ?? '';
+ const hasLinkedProfile = profiles.some(profile => String(profile.id) === String(linkedId));
+ const updateField = (key, value) => setForm(previous => ({ ...previous, [key]: value }));
+
+ async function save(event) {
+  event.preventDefault();
+  setError('');
+  setMessage('');
+  const { id, email, name, password, role } = form;
+  if (password && (password.trim().length === 0 || new TextEncoder().encode(password).length > 72)) {
+   setError('Informe uma senha de pelo menos 8 caracteres e até 72 bytes.');
+   return;
+  }
+  const academicId = role === 'ROLE_ADMIN' || linkedId === '' ? null : Number(linkedId);
+  const payload = { email: email.trim(), name: name.trim(), password, role, academicId };
+  setBusy(true);
+  try {
+   const saved = await api(id ? '/users/' + id : '/users', {
+    method: id ? 'PUT' : 'POST',
+    body: JSON.stringify(payload),
+   });
+   setRows(previous => id ? previous.map(row => row.id === id ? saved : row) : [...previous, saved]);
+   setForm(emptyUser);
+   setMessage(id ? 'Conta atualizada.' : 'Conta criada. O usuário já pode entrar com a senha definida.');
+  } catch (failure) {
+   setError(failure.status === 409 ? 'Este e-mail já está cadastrado.' : failure.message);
+  } finally {
+   setBusy(false);
+  }
+ }
+
+ async function remove(id) {
+  setError('');
+  setMessage('');
+  setBusy(true);
+  try {
+   await api('/users/' + id, { method: 'DELETE' });
+   setRows(previous => previous.filter(row => row.id !== id));
+   if (form.id === id) setForm(emptyUser);
+   setMessage('Usuário excluído.');
+  } catch (failure) {
+   setError(failure.message);
+  } finally {
+   setBusy(false);
+  }
+ }
+
+ return <section className="card">
+  <h3>Usuários</h3>
+  <Notification text={error} onClose={() => setError('')}/>
+  {message && <p role="status">{message}</p>}
+  <h4>{form.id ? 'Editar usuário' : 'Criar usuário'}</h4>
+  <p>Para vincular um aluno ou professor, cadastre a pessoa na aba do perfil correspondente e selecione o cadastro abaixo. Após mudar o perfil ou vínculo, o usuário precisa entrar novamente.</p>
+  <form className="record-form" onSubmit={save}>
+   <label>Nome<input required maxLength={255} value={form.name} onChange={e => updateField('name', e.target.value)}/></label>
+   <label>E-mail<input type="email" required maxLength={255} value={form.email} onChange={e => updateField('email', e.target.value)}/></label>
+   <label>Perfil<select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, academicId: '' })}>
+    {Object.entries(roleLabels).map(([role, label]) => <option key={role} value={role}>{label}</option>)}
+   </select></label>
+   <label>ID do cadastro acadêmico
+    <select disabled={form.role === 'ROLE_ADMIN'} value={linkedId} onChange={e => updateField('academicId', e.target.value)}>
+     <option value="">Sem vínculo</option>
+     {linkedId !== '' && !hasLinkedProfile && <option value={linkedId}>Cadastro #{linkedId}</option>}
+     {profiles.map(profile => <option key={profile.id} value={profile.id}>
+      {profile.nome}{profile.matricula ? ' · ' + profile.matricula : ' · ' + profile.email}
+     </option>)}
+    </select>
+   </label>
+   <label>{form.id ? 'Nova senha (opcional)' : 'Senha'}
+    <input type="password" minLength={8} autoComplete="new-password" required={!form.id}
+     value={form.password} onChange={e => updateField('password', e.target.value)}/>
+   </label>
+   <button disabled={busy || loading}>{form.id ? 'Salvar alterações' : 'Criar usuário'}</button>
+   {form.id && <button disabled={busy} type="button" onClick={() => setForm(emptyUser)}>Cancelar edição</button>}
+  </form>
+  <Table rows={rows.map(row => ({ ...row, roleLabel: roleLabels[row.role] }))} fields={userFields} actions={row => <>
+   <button disabled={busy} onClick={() => { setMessage(''); setForm({ ...row, password: '' }); }}>Editar</button>
+   <button disabled={busy} onClick={() => remove(row.id)}>Excluir</button>
+  </>}/>
+ </section>;
 }

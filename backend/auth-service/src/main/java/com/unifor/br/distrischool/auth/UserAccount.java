@@ -9,9 +9,6 @@ public class UserAccount {
  @Column(nullable=false) public String passwordHash;
  @Column(nullable=false) public String role;
  public Long academicId;
- @Column(nullable=false) public boolean emailVerified = true;
- public String verificationHash;
- public java.time.Instant verificationExpires;
- public String resetHash;
- public java.time.Instant resetExpires;
+ // Preserve the status of accounts created before registration became administrative.
+ @Column(name="email_verified", nullable=false) public boolean enabled = true;
 }

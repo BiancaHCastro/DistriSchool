@@ -23,19 +23,13 @@ services:
   api-gateway:
     environment:
       JWT_SECRET: ${JWT_SECRET:?Informe o segredo JWT}
-      APP_ALLOWED_ORIGINS: https://${PUBLIC_DOMAIN:?Informe o dominio publico}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-https://${PUBLIC_DOMAIN:?Informe o dominio publico}}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
     restart: unless-stopped
 
   auth-service:
     environment:
-      APP_PUBLIC_URL: https://${PUBLIC_DOMAIN:?Informe o dominio publico}
-      SPRING_PROFILES_ACTIVE: ${DEPLOY_AUTH_PROFILES:-production,smtp-notifications}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-}
+      SPRING_PROFILES_ACTIVE: ${DEPLOY_AUTH_PROFILES:-production}
       APP_SEED_DEMO_USERS: "false"
       SEED_PASSWORD: ${SEED_PASSWORD:?Informe a senha inicial}
       NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:?Informe a chave interna de notificacoes}

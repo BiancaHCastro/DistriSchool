@@ -66,7 +66,6 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-distrischool}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-distrischool-local}
       NOTIFICATION_LOOKUP_KEY: ${NOTIFICATION_LOOKUP_KEY:-local-notification-lookup}
-      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:5173}
       SPRING_PROFILES_ACTIVE: ${AUTH_PROFILES:-local-notifications}
       SEED_PASSWORD: ${SEED_PASSWORD:-Universidade123!}
     depends_on:

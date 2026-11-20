@@ -17,7 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@SpringBootTest @AutoConfigureMockMvc @Import(SecurityIntegrationTests.Probes.class)
+@SpringBootTest(properties = "APP_ALLOWED_ORIGINS=http://localhost:5173,https://distrischool.vercel.app")
+@AutoConfigureMockMvc @Import(SecurityIntegrationTests.Probes.class)
 class SecurityIntegrationTests {
  @Autowired MockMvc mvc;
  @Autowired SecretKeySpec key;
@@ -31,6 +32,21 @@ class SecurityIntegrationTests {
  String token(String role,Instant expiry){var claims=JwtClaimsSet.builder().issuer("https://distrischool.local").subject("1").issuedAt(Instant.now().minusSeconds(120)).expiresAt(expiry).claim("roles",List.of(role)).claim("academicId",12L).build();return new NimbusJwtEncoder(new ImmutableSecret<>(key)).encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),claims)).getTokenValue();}
  String token(String role){return token(role,Instant.now().plusSeconds(3600));}
  @Test void missingTokenIs401()throws Exception{mvc.perform(get("/test/read")).andExpect(status().isUnauthorized());}
+ @Test void onlyAdministratorsCanUseAccountManagement() throws Exception {
+  mvc.perform(post("/api/users")).andExpect(status().isUnauthorized());
+  mvc.perform(post("/api/users").header("Authorization", "Bearer " + token("ROLE_ALUNO")))
+      .andExpect(status().isForbidden());
+  mvc.perform(put("/api/users/12").header("Authorization", "Bearer " + token("ROLE_PROFESSOR")))
+      .andExpect(status().isForbidden());
+ }
+ @Test void configuredVercelOriginCanUseAccountManagement() throws Exception {
+  mvc.perform(options("/api/users")
+      .header("Origin", "https://distrischool.vercel.app")
+      .header("Access-Control-Request-Method", "POST")
+      .header("Access-Control-Request-Headers", "authorization,content-type"))
+      .andExpect(status().isOk())
+      .andExpect(header().string("Access-Control-Allow-Origin", "https://distrischool.vercel.app"));
+ }
  @Test void invalidTokenIs401()throws Exception{mvc.perform(get("/test/read").header("Authorization","Bearer invalid.jwt.token")).andExpect(status().isUnauthorized());}
  @Test void expiredTokenIs401()throws Exception{mvc.perform(get("/test/read").header("Authorization","Bearer "+token("ROLE_ALUNO",Instant.now().minusSeconds(90)))).andExpect(status().isUnauthorized());}
  @Test void rolesAreEnforced()throws Exception{
