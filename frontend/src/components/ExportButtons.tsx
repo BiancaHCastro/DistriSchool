@@ -4,8 +4,8 @@ import { API_BASE, apiFetch } from '../auth/http';
 
 type Format = 'csv' | 'pdf';
 
-export default function ExportButtons({ endpoint, filename, turmaId }: {
-  endpoint: string; filename: string; turmaId: string;
+export default function ExportButtons({ endpoint, filename, turmaId, alunoId, allowUnfiltered = false }: {
+  endpoint: string; filename: string; turmaId?: string; alunoId?: number | string; allowUnfiltered?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -14,7 +14,9 @@ export default function ExportButtons({ endpoint, filename, turmaId }: {
     setPending(true);
     setError('');
     try {
-      const query = new URLSearchParams({ formato, turmaId });
+      const query = new URLSearchParams({ formato });
+      if (turmaId) query.set('turmaId', turmaId);
+      if (alunoId !== undefined && alunoId !== null && String(alunoId)) query.set('alunoId', String(alunoId));
       const response = await apiFetch(API_BASE + endpoint + '?' + query);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
@@ -31,9 +33,11 @@ export default function ExportButtons({ endpoint, filename, turmaId }: {
     }
   }
 
+  const disabled = pending || (!allowUnfiltered && !turmaId && !alunoId);
+
   return <div className="header-nav">
-    <button type="button" disabled={!turmaId || pending} onClick={() => exportReport('csv')}>Exportar CSV</button>
-    <button type="button" disabled={!turmaId || pending} onClick={() => exportReport('pdf')}>Exportar PDF</button>
+    <button type="button" disabled={disabled} onClick={() => exportReport('csv')}>Exportar CSV</button>
+    <button type="button" disabled={disabled} onClick={() => exportReport('pdf')}>Exportar PDF</button>
     <Notification text={error} onClose={() => setError('')}/>
   </div>;
 }
